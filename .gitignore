@@ -1,2 +1,4 @@
 Notebooks/
 */__pycache__/*
+
+*.bin
