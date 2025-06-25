@@ -1,198 +1,153 @@
-"""
-Audio Transcription Pipeline Main Script
-
-This script orchestrates the transcription pipeline, providing a simple
-interface for transcribing audio files or live audio from microphone using
-Whisper.
-
-Usage:
-    python main.py --help                          # Show help
-    python main.py file audio.wav                  # Transcribe a file
-    python main.py files *.wav                     # Transcribe multiple files
-    python main.py live                            # Start live transcription
-    python main.py live --language en              # Live transcription
-"""
-
 import argparse
 import sys
 import os
 import glob
 import json
 import time
+from lib.logger_config import logger
 
-# Add Src directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "Src"))
 
 try:
-    from transcription import AudioTranscriber, TranscriptionPipeline
+    from transcription import (
+        AudioTranscriber,
+        TranscriptionPipeline,
+        OutputFormat,
+    )
 except ImportError as e:
-    print(f"Error importing transcription module: {e}")
-    print("Make sure all dependencies are installed:")
-    print("pip install -r requirement.txt")
+    logger.error("Error importing transcription module: %s", e)
+    logger.info("Make sure all dependencies are installed:")
+    logger.info("pip install -r requirement.txt")
     sys.exit(1)
 
 
 def transcribe_file(args):
-    """Transcribe a single audio file"""
     if not os.path.exists(args.input):
-        print(f"Error: File '{args.input}' not found.")
+        logger.error("File '%s' not found.", args.input)
         return
-
-    print(f"Transcribing file: {args.input}")
-    print(f"Using model: {args.model}")
+    logger.info("Transcribing file: %s", args.input)
+    logger.info("Using model: %s", args.model)
     if args.language:
-        print(f"Language: {args.language}")
-
-    try:
-        # Initialize pipeline
-        pipeline = TranscriptionPipeline(model_name=args.model, language=args.language)
-
-        # Process file
-        result = pipeline.process_file(args.input, output_format=args.format)
-
-        # Output results
-        if args.output:
-            save_results(result, args.output, args.format)
-            print(f"Results saved to: {args.output}")
-        else:
-            display_results(result, args.format)
-
-    except Exception as e:
-        print(f"Error during transcription: {e}")
+        logger.info("Language: %s", args.language)
+    pipeline = TranscriptionPipeline(
+        model_name=args.model, language=args.language, device=args.device
+    )
+    result = pipeline.process_file(args.input, output_format=args.format)
+    if args.output:
+        save_results(result, args.output, args.format)
+        logger.info("Results saved to: %s", args.output)
+    else:
+        display_results(result, args.format)
 
 
 def transcribe_files(args):
-    """Transcribe multiple audio files"""
-    # Expand glob patterns
     file_paths = []
     for pattern in args.inputs:
         if "*" in pattern or "?" in pattern:
             file_paths.extend(glob.glob(pattern))
         else:
             file_paths.append(pattern)
-
-    # Filter existing files
     existing_files = [f for f in file_paths if os.path.exists(f)]
-
     if not existing_files:
-        print("Error: No valid audio files found.")
+        logger.error("No valid audio files found.")
         return
-
-    print(f"Found {len(existing_files)} files to transcribe")
-    print(f"Using model: {args.model}")
+    logger.info("Found %d files to transcribe", len(existing_files))
+    logger.info("Using model: %s", args.model)
     if args.language:
-        print(f"Language: {args.language}")
-
-    try:
-        # Initialize transcriber
-        transcriber = AudioTranscriber(model_name=args.model, language=args.language)
-
-        # Process files
-        results = transcriber.transcribe_multiple_files(existing_files, args.language)
-
-        # Output results
-        if args.output:
-            save_batch_results(results, args.output, args.format)
-            print(f"Results saved to: {args.output}")
-        else:
-            display_batch_results(results, args.format)
-
-    except Exception as e:
-        print(f"Error during batch transcription: {e}")
+        logger.info("Language: %s", args.language)
+    pipeline = TranscriptionPipeline(
+        model_name=args.model, language=args.language, device=args.device
+    )
+    results = pipeline.process_multiple_files(existing_files, args.format)
+    if args.output:
+        save_batch_results(results, args.output, args.format)
+        logger.info("Results saved to: %s", args.output)
+    else:
+        display_batch_results(results, args.format)
 
 
 def transcribe_live(args):
-    """Start live audio transcription"""
-    print("Starting live audio transcription...")
-    print(f"Using model: {args.model}")
+    logger.info("Starting live audio transcription...")
+    logger.info("Using model: %s", args.model)
     if args.language:
-        print(f"Language: {args.language}")
-    print(f"Chunk duration: {args.chunk_duration} seconds")
+        logger.info("Language: %s", args.language)
+    logger.info("Chunk duration: %s seconds", args.chunk_duration)
     print("Speak into your microphone. Press Ctrl+C to stop.")
+    transcriber = AudioTranscriber(
+        model_name=args.model, language=args.language, device=args.device
+    )
+    live_results = []
 
-    try:
-        # Initialize transcriber
-        transcriber = AudioTranscriber(model_name=args.model, language=args.language)
-
-        # Results storage for batch output
-        live_results = []
-
-        def transcription_callback(result):
-            """Callback for live transcription results"""
-            timestamp = time.strftime("%H:%M:%S", time.localtime(result["timestamp"]))
-            text = result["text"]
-            language = result["language"]
-            confidence = result.get("confidence", 0)
-
-            print(f"[{timestamp}] ({language}) {text}")
-
-            # Store for potential file output
-            live_results.append(
-                {
-                    "timestamp": result["timestamp"],
-                    "text": text,
-                    "language": language,
-                    "confidence": confidence,
-                }
-            )
-
-        # Start live transcription
-        transcriber.start_live_transcription(
-            callback=transcription_callback,
-            language=args.language,
-            chunk_duration=args.chunk_duration,
+    def transcription_callback(result):
+        timestamp = time.strftime("%H:%M:%S", time.localtime(result["timestamp"]))
+        text = result["text"]
+        language = result["language"]
+        confidence = result.get("confidence", 0)
+        logger.info("[%s] (%s) %s", timestamp, language, text)
+        live_results.append(
+            {
+                "timestamp": result["timestamp"],
+                "text": text,
+                "language": language,
+                "confidence": confidence,
+                "word_count": result.get("word_count", 0),
+                "cleaned_text": result.get("cleaned_text", text),
+            }
         )
 
-        try:
-            # Keep running until interrupted
-            while transcriber.is_recording:
-                time.sleep(0.1)
-        except KeyboardInterrupt:
-            print("\nStopping transcription...")
-            transcriber.stop_live_transcription()
-
-            # Save results if requested
-            if args.output and live_results:
-                save_live_results(live_results, args.output)
-                print(f"Live transcription results saved to: {args.output}")
-
-    except Exception as e:
-        print(f"Error during live transcription: {e}")
+    transcriber.start_live_transcription(
+        callback=transcription_callback,
+        language=args.language,
+        chunk_duration=args.chunk_duration,
+    )
+    try:
+        while transcriber.is_recording:
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        logger.info("Stopping transcription...")
+        transcriber.stop_live_transcription()
+        if args.output and live_results:
+            save_live_results(live_results, args.output)
+            logger.info("Live transcription results saved to: %s", args.output)
 
 
 def display_results(result, format_type):
-    """Display transcription results"""
-    print("\n" + "=" * 50)
-    print("TRANSCRIPTION RESULTS")
-    print("=" * 50)
-
+    logger.info("Displaying single transcription result")
     if format_type == "json":
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+        logger.info(json.dumps(result, indent=2, ensure_ascii=False))
     elif format_type == "srt" and "srt" in result:
-        print(result["srt"])
+        logger.info(result["srt"])
     else:
-        print(f"Text: {result.get('cleaned_text', result.get('text', ''))}")
-        print(f"Language: {result.get('language', 'unknown')}")
-        print(f"Word Count: {result.get('word_count', 0)}")
+        logger.info(
+            "Text: %s | Language: %s | Word Count: %d",
+            result.get("cleaned_text", result.get("text", "")),
+            result.get("language", "unknown"),
+            result.get("word_count", 0),
+        )
 
 
 def display_batch_results(results, format_type):
-    """Display batch transcription results"""
-    print("\n" + "=" * 50)
-    print("BATCH TRANSCRIPTION RESULTS")
-    print("=" * 50)
-
+    logger.info("Displaying batch transcription results")
     for i, result in enumerate(results, 1):
-        print(f"\nFile {i}: {result.get('file_path', 'unknown')}")
         if "error" in result:
-            print(f"Error: {result['error']}")
+            logger.error(
+                "File %d: %s | Error: %s",
+                i,
+                result.get("file_path", "unknown"),
+                result["error"],
+            )
         else:
-            print(f"Text: {result.get('text', '')}")
-            print(f"Language: {result.get('language', 'unknown')}")
+            logger.info(
+                "File %d: %s | Text: %s | Language: %s | Word Count: %d",
+                i,
+                result.get("file_path", "unknown"),
+                result.get("cleaned_text", result.get("text", "")),
+                result.get("language", "unknown"),
+                result.get("word_count", 0),
+            )
 
 
 def save_results(result, output_path, format_type):
-    """Save transcription results to file"""
     if format_type == "json":
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2, ensure_ascii=False)
@@ -205,30 +160,31 @@ def save_results(result, output_path, format_type):
 
 
 def save_batch_results(results, output_path, format_type):
-    """Save batch transcription results to file"""
     if format_type == "json":
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(results, f, indent=2, ensure_ascii=False)
     else:
         with open(output_path, "w", encoding="utf-8") as f:
             for result in results:
-                f.write(f"File: {result.get('file_path', 'unknown')}\n")
+                f.write("File: %s\n" % result.get("file_path", "unknown"))
                 if "error" in result:
-                    f.write(f"Error: {result['error']}\n")
+                    f.write("Error: %s\n" % result["error"])
                 else:
-                    f.write(f"Text: {result.get('text', '')}\n")
-                    f.write(f"Language: {result.get('language', 'unknown')}\n")
+                    f.write(
+                        "Text: %s\n"
+                        % result.get("cleaned_text", result.get("text", ""))
+                    )
+                    f.write("\nLanguage: %s\n" % result.get("language", "unknown"))
+                    f.write("Word Count: %d\n" % result.get("word_count", 0))
                 f.write("\n" + "-" * 40 + "\n\n")
 
 
 def save_live_results(results, output_path):
-    """Save live transcription results to file"""
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
 
 
 def main():
-    """Main function"""
     parser = argparse.ArgumentParser(
         description="Audio Transcription Pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -244,10 +200,8 @@ Examples:
         """,
     )
 
-    # Create subparsers for different modes
     subparsers = parser.add_subparsers(dest="mode", help="Transcription mode")
 
-    # File transcription
     file_parser = subparsers.add_parser("file", help="Transcribe a single audio file")
     file_parser.add_argument("input", help="Input audio file path")
     file_parser.add_argument("--output", "-o", help="Output file path")
@@ -264,12 +218,17 @@ Examples:
     file_parser.add_argument(
         "--format",
         "-f",
-        choices=["text", "json", "srt"],
+        choices=[fmt.value for fmt in OutputFormat],
         default="text",
         help="Output format (default: text)",
     )
+    file_parser.add_argument(
+        "--device",
+        "-d",
+        default=os.environ.get("TRANSCRIBE_DEVICE", None),
+        help="Device to use (cpu/cuda). Default: env TRANSCRIBE_DEVICE or auto",
+    )
 
-    # Multiple files transcription
     files_parser = subparsers.add_parser(
         "files", help="Transcribe multiple audio files"
     )
@@ -294,8 +253,12 @@ Examples:
         default="text",
         help="Output format (default: text)",
     )
-
-    # Live transcription
+    files_parser.add_argument(
+        "--device",
+        "-d",
+        default=os.environ.get("TRANSCRIBE_DEVICE", None),
+        help="Device to use (cpu/cuda). Default: env TRANSCRIBE_DEVICE or auto",
+    )
     live_parser = subparsers.add_parser("live", help="Start live audio transcription")
     live_parser.add_argument(
         "--output", "-o", help="Output file path for saving results"
@@ -312,19 +275,23 @@ Examples:
     )
     live_parser.add_argument(
         "--chunk-duration",
-        "-d",
+        "-c",
         type=float,
         default=5.0,
         help="Audio chunk duration in seconds (default: 5.0)",
     )
-
+    live_parser.add_argument(
+        "--device",
+        "-d",
+        default=os.environ.get("TRANSCRIBE_DEVICE", None),
+        help="Device to use (cpu/cuda). Default: env TRANSCRIBE_DEVICE or auto",
+    )
     args = parser.parse_args()
 
     if not args.mode:
         parser.print_help()
         return
 
-    # Route to appropriate function
     if args.mode == "file":
         transcribe_file(args)
     elif args.mode == "files":
