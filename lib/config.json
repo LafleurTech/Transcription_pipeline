@@ -1,0 +1,36 @@
+{
+  "audio": {
+    "chunk_size": 1024,
+    "format": "paInt16",
+    "channels": 1,
+    "rate": 16000,
+    "silence_threshold": 500,
+    "silence_limit": 5
+  },
+  "whisper": {
+    "available_models": ["tiny", "base", "small", "medium", "large", "turbo"],
+    "default_model": "turbo"
+  },
+  "output": {
+    "default_format": "text",
+    "supported_formats": ["text", "json", "srt"],
+    "supported_audio_extensions": [".wav", ".mp3", ".m4a", ".flac", ".aac", ".ogg", ".wma"]
+  },
+  "transcription": {
+    "default_chunk_duration": 5.0,
+    "auto_punctuation": true,
+    "punctuation_chars": ".!?",
+    "add_word_count": true,
+    "clean_text": true
+  },
+  "srt": {
+    "time_format": "HH:MM:SS,mmm",
+    "max_line_length": 80,
+    "max_lines_per_subtitle": 2
+  },
+  "processing": {
+    "exception_on_overflow": false,
+    "temp_file_suffix": ".wav",
+    "batch_processing_enabled": true
+  }
+}

@@ -6,6 +6,10 @@ torchaudio>=0.13.0
 
 # Audio processing
 pyaudio>=0.2.11
+ffmpeg-python>=0.2.0
+
+# Configuration
+python-dotenv>=1.0.0
 
 # Data handling
 numpy>=1.21.0
@@ -16,6 +20,11 @@ jiwer>=2.2.0
 
 # Utilities
 tqdm>=4.62.0
+typer>=0.9.0
 
 # Optional: For faster inference 
 # faster-whisper>=0.7.0
+
+# Development (optional)
+# black
+# flake8

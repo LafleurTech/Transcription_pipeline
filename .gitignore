@@ -1,4 +1,6 @@
-Notebooks/
 */__pycache__/*
+
+Notebooks/
+models/
 
 *.bin

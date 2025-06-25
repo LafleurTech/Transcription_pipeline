@@ -12,6 +12,12 @@ Sound -> Pre-processing(noise) -> Diarisation(speaker detection) -> Language det
 4. **Transcription**: Speech-to-text conversion using OpenAI Whisper
 5. **Post-processing**: Text cleaning, formatting, and output generation
 
+## Requirements
+
+- Python 3.8 or higher
+- FFmpeg (required by Whisper)
+- All Python dependencies in `requirement.txt`
+
 ## Features
 
 - 📁 **File Transcription**: Support for multiple audio formats (WAV, MP3, FLAC, etc.)
@@ -22,11 +28,6 @@ Sound -> Pre-processing(noise) -> Diarisation(speaker detection) -> Language det
 - ⚡ **Batch Processing**: Transcribe multiple files at once
 
 ## Installation
-
-### Prerequisites
-
-- Python 3.8 or higher
-- FFmpeg (required by Whisper)
 
 ### Quick Setup (Windows)
 
@@ -156,8 +157,6 @@ Leave blank for automatic detection.
 ```
 Transcription_pipeline/
 ├── main.py                 # Main CLI orchestrator
-├── example_usage.py        # Usage examples
-├── setup.ps1              # Windows setup script
 ├── requirement.txt        # Python dependencies
 ├── README.md              # This file
 ├── Src/
@@ -225,9 +224,10 @@ python example_usage.py
 ```
 
 ### Dependencies
-Core dependencies are in `requirement.txt`. Optional dependencies include:
-- `faster-whisper`: For improved performance
-- `black`, `flake8`: For code formatting and linting
+- All core dependencies are in `requirement.txt`.
+- Optional dependencies for development/formatting:
+  - `faster-whisper`: For improved performance
+  - `black`, `flake8`: For code formatting and linting
 
 ## License
 
