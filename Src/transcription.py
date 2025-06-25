@@ -31,6 +31,15 @@ class AudioFormat(Enum):
     SILENCE_LIMIT = 5
 
 
+class WhisperModel(Enum):
+    TINY = "tiny"
+    BASE = "base"
+    SMALL = "small"
+    MEDIUM = "medium"
+    LARGE = "large"
+    TURBO = "turbo"
+
+
 @dataclass
 class AudioConfig:
     chunk: int = AudioFormat.CHUNK.value
@@ -43,7 +52,7 @@ class AudioConfig:
 
 @contextmanager
 def audio_stream(config: AudioConfig) -> Iterator[pyaudio.Stream]:
-    """Context manager for audio stream."""
+
     audio = pyaudio.PyAudio()
     stream = None
     try:
@@ -62,16 +71,7 @@ def audio_stream(config: AudioConfig) -> Iterator[pyaudio.Stream]:
         audio.terminate()
 
 
-class WhisperModel(Enum):
-    TINY = "tiny"
-    BASE = "base"
-    SMALL = "small"
-    MEDIUM = "medium"
-    LARGE = "large"
-    TURBO = "turbo"
-
-
-DEFAULT_MODEL = WhisperModel.BASE.value
+DEFAULT_MODEL = WhisperModel.TURBO.value
 DEVICE = (
     "cuda" if os.environ.get("CUDA_AVAILABLE", "false").lower() == "true" else "cpu"
 )

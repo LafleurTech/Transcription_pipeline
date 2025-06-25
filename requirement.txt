@@ -1,5 +1,6 @@
 # Core transcription dependencies
 openai-whisper>=20240930
+# (pip install git+https://github.com/openai/whisper.git) 
 torch>=1.13.0
 torchaudio>=0.13.0
 
@@ -16,10 +17,5 @@ jiwer>=2.2.0
 # Utilities
 tqdm>=4.62.0
 
-# Optional: For faster inference (uncomment if needed)
+# Optional: For faster inference 
 # faster-whisper>=0.7.0
-
-# Development dependencies (optional)
-# black>=21.0.0
-# flake8>=3.9.0
-# pytest>=6.0.0
