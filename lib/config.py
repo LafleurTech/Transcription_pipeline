@@ -1,303 +1,337 @@
 import os
 import json
-from dataclasses import dataclass
-from typing import Optional, Dict, Any, List
+from dataclasses import dataclass, fields
+from typing import Optional, Dict, Any, List, Type, TypeVar
 from pathlib import Path
 import pyaudio
 from dotenv import load_dotenv
 
 from lib.logger_config import logger
 
-# Load environment variables
 load_dotenv()
+
+T = TypeVar("T")
+
+
+class BaseConfig:
+    @classmethod
+    def from_dict(cls: Type[T], data: Dict[str, Any]) -> T:
+        field_names = {f.name for f in fields(cls)}
+        filtered_data = {k: v for k, v in data.items() if k in field_names}
+        if hasattr(cls, "_handle_special_fields"):
+            filtered_data = cls._handle_special_fields(filtered_data)
+        return cls(**filtered_data)
 
 
 @dataclass
-class AudioConfig:
-    """Audio recording and processing configuration."""
-
-    chunk_size: int = 1024
-    format: int = pyaudio.paInt16
-    channels: int = 1
-    rate: int = 16000
-    silence_threshold: int = 500
-    silence_limit: int = 5
+class AudioConfig(BaseConfig):
+    chunk_size: int
+    format: int
+    channels: int
+    rate: int
+    silence_threshold: int
+    silence_limit: int
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "AudioConfig":
-        """Create AudioConfig from dictionary."""
+    def _handle_special_fields(cls, data: Dict[str, Any]) -> Dict[str, Any]:
         format_mapping = {
             "paInt16": pyaudio.paInt16,
             "paInt32": pyaudio.paInt32,
             "paFloat32": pyaudio.paFloat32,
         }
-
-        return cls(
-            chunk_size=data.get("chunk_size", 1024),
-            format=format_mapping.get(data.get("format", "paInt16"), pyaudio.paInt16),
-            channels=data.get("channels", 1),
-            rate=data.get("rate", 16000),
-            silence_threshold=data.get("silence_threshold", 500),
-            silence_limit=data.get("silence_limit", 5),
-        )
+        if "format" in data:
+            data["format"] = format_mapping.get(data["format"], pyaudio.paInt16)
+        return data
 
 
 @dataclass
-class WhisperConfig:
-    """Whisper model configuration."""
-
+class WhisperConfig(BaseConfig):
     available_models: List[str]
     default_model: str
 
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "WhisperConfig":
-        """Create WhisperConfig from dictionary."""
-        return cls(
-            available_models=data.get(
-                "available_models",
-                ["tiny", "base", "small", "medium", "large", "turbo"],
-            ),
-            default_model=data.get("default_model", "turbo"),
-        )
-
 
 @dataclass
-class OutputConfig:
-    """Output format configuration."""
-
+class OutputConfig(BaseConfig):
     default_format: str
     supported_formats: List[str]
     supported_audio_extensions: List[str]
 
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "OutputConfig":
-        """Create OutputConfig from dictionary."""
-        return cls(
-            default_format=data.get("default_format", "text"),
-            supported_formats=data.get("supported_formats", ["text", "json", "srt"]),
-            supported_audio_extensions=data.get(
-                "supported_audio_extensions", [".wav", ".mp3", ".m4a", ".flac"]
-            ),
-        )
-
 
 @dataclass
-class TranscriptionConfig:
-    """Transcription processing configuration."""
-
+class TranscriptionConfig(BaseConfig):
     default_chunk_duration: float
     auto_punctuation: bool
     punctuation_chars: str
     add_word_count: bool
     clean_text: bool
 
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "TranscriptionConfig":
-        """Create TranscriptionConfig from dictionary."""
-        return cls(
-            default_chunk_duration=data.get("default_chunk_duration", 5.0),
-            auto_punctuation=data.get("auto_punctuation", True),
-            punctuation_chars=data.get("punctuation_chars", ".!?"),
-            add_word_count=data.get("add_word_count", True),
-            clean_text=data.get("clean_text", True),
-        )
-
 
 @dataclass
-class SRTConfig:
-    """SRT subtitle configuration."""
-
+class SRTConfig(BaseConfig):
     time_format: str
     max_line_length: int
     max_lines_per_subtitle: int
 
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SRTConfig":
-        """Create SRTConfig from dictionary."""
-        return cls(
-            time_format=data.get("time_format", "HH:MM:SS,mmm"),
-            max_line_length=data.get("max_line_length", 80),
-            max_lines_per_subtitle=data.get("max_lines_per_subtitle", 2),
-        )
-
 
 @dataclass
-class ProcessingConfig:
-    """Processing behavior configuration."""
-
+class ProcessingConfig(BaseConfig):
     exception_on_overflow: bool
     temp_file_suffix: str
     batch_processing_enabled: bool
 
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ProcessingConfig":
-        """Create ProcessingConfig from dictionary."""
-        return cls(
-            exception_on_overflow=data.get("exception_on_overflow", False),
-            temp_file_suffix=data.get("temp_file_suffix", ".wav"),
-            batch_processing_enabled=data.get("batch_processing_enabled", True),
-        )
+
+@dataclass
+class CLIConfig(BaseConfig):
+    default_model: str
+    default_output_format: str
+    default_chunk_duration: float
+    show_progress: bool
+    validate_inputs: bool
+
+
+@dataclass
+class DeviceConfig(BaseConfig):
+    auto_detect: bool
+    prefer_cuda: bool
+    fallback_to_cpu: bool
+    device_selection_strategy: str
+
+
+@dataclass
+class LoggingConfig(BaseConfig):
+    level: str
+    format: str
+    enable_file_logging: bool
+    log_file_path: str
+
+
+@dataclass
+class ValidationConfig(BaseConfig):
+    check_file_exists: bool
+    validate_audio_format: bool
+    validate_model_name: bool
+    validate_output_format: bool
+    max_file_size_mb: int
+
+
+@dataclass
+class PerformanceConfig(BaseConfig):
+    max_concurrent_transcriptions: int
+    thread_join_timeout: float
+    audio_queue_timeout: float
+    batch_size: int
+    enable_optimizations: bool
 
 
 class Config:
-    """Main configuration class that loads from JSON and environment variables."""
-
     def __init__(self, config_path: Optional[str] = None):
         self.config_path = config_path or self._get_default_config_path()
         self._load_config()
         self._load_env_vars()
 
     def _get_default_config_path(self) -> str:
-        """Get the default configuration file path."""
         current_dir = Path(__file__).parent
         return str(current_dir / "config.json")
 
     def _load_config(self) -> None:
-        """Load configuration from JSON file."""
-        try:
-            with open(self.config_path, "r", encoding="utf-8") as f:
-                config_data = json.load(f)
+        with open(self.config_path, "r", encoding="utf-8") as f:
+            config_data = json.load(f)
+        self.audio = AudioConfig.from_dict(config_data["audio"])
+        self.whisper = WhisperConfig.from_dict(config_data["whisper"])
+        self.output = OutputConfig.from_dict(config_data["output"])
+        self.transcription = TranscriptionConfig.from_dict(config_data["transcription"])
+        self.srt = SRTConfig.from_dict(config_data["srt"])
+        self.processing = ProcessingConfig.from_dict(config_data["processing"])
+        self.cli = CLIConfig.from_dict(config_data["cli"])
+        self.device = DeviceConfig.from_dict(config_data["device"])
+        self.logging = LoggingConfig.from_dict(config_data["logging"])
+        self.validation = ValidationConfig.from_dict(config_data["validation"])
+        self.performance = PerformanceConfig.from_dict(config_data["performance"])
+        logger.info("Configuration loaded from: %s", self.config_path)
 
-            self.audio = AudioConfig.from_dict(config_data.get("audio", {}))
-            self.whisper = WhisperConfig.from_dict(config_data.get("whisper", {}))
-            self.output = OutputConfig.from_dict(config_data.get("output", {}))
-            self.transcription = TranscriptionConfig.from_dict(
-                config_data.get("transcription", {})
-            )
-            self.srt = SRTConfig.from_dict(config_data.get("srt", {}))
-            self.processing = ProcessingConfig.from_dict(
-                config_data.get("processing", {})
-            )
-
-            logger.info("Configuration loaded from: %s", self.config_path)
-
-        except FileNotFoundError:
-            logger.warning(
-                "Config file not found at %s, using defaults", self.config_path
-            )
-            self._load_defaults()
-        except json.JSONDecodeError as e:
-            logger.error("Invalid JSON in config file: %s", e)
-            self._load_defaults()
-        except Exception as e:
-            logger.error("Error loading config: %s", e)
-            self._load_defaults()
-
-    def _load_defaults(self) -> None:
-        """Load default configuration values."""
-        self.audio = AudioConfig()
-        self.whisper = WhisperConfig(
-            available_models=["tiny", "base", "small", "medium", "large", "turbo"],
-            default_model="turbo",
-        )
-        self.output = OutputConfig(
-            default_format="text",
-            supported_formats=["text", "json", "srt"],
-            supported_audio_extensions=[".wav", ".mp3", ".m4a", ".flac"],
-        )
-        self.transcription = TranscriptionConfig(
-            default_chunk_duration=5.0,
-            auto_punctuation=True,
-            punctuation_chars=".!?",
-            add_word_count=True,
-            clean_text=True,
-        )
-        self.srt = SRTConfig(
-            time_format="HH:MM:SS,mmm", max_line_length=80, max_lines_per_subtitle=2
-        )
-        self.processing = ProcessingConfig(
-            exception_on_overflow=False,
-            temp_file_suffix=".wav",
-            batch_processing_enabled=True,
-        )
+    def _apply_env_override(
+        self, env_var: str, target_obj: Any, attr: str, converter=None
+    ) -> None:
+        env_value = os.getenv(env_var)
+        if env_value:
+            value = converter(env_value) if converter else env_value
+            setattr(target_obj, attr, value)
 
     def _load_env_vars(self) -> None:
-        """Load configuration from environment variables."""
-        # Override with environment variables if present
+        env_mappings = [
+            (
+                "CUDA_AVAILABLE",
+                self.device,
+                "prefer_cuda",
+                lambda x: x.lower() == "true",
+            ),
+            ("THREAD_JOIN_TIMEOUT", self.performance, "thread_join_timeout", float),
+            ("AUDIO_QUEUE_TIMEOUT", self.performance, "audio_queue_timeout", float),
+            (
+                "MAX_CONCURRENT_TRANSCRIPTIONS",
+                self.performance,
+                "max_concurrent_transcriptions",
+                int,
+            ),
+            ("CLI_DEFAULT_MODEL", self.cli, "default_model"),
+            ("CLI_DEFAULT_OUTPUT_FORMAT", self.cli, "default_output_format"),
+            ("CLI_DEFAULT_CHUNK_DURATION", self.cli, "default_chunk_duration", float),
+            ("LOG_LEVEL", self.logging, "level"),
+        ]
+
+        for mapping in env_mappings:
+            env_var, target_obj, attr = mapping[:3]
+            converter = mapping[3] if len(mapping) > 3 else None
+            self._apply_env_override(env_var, target_obj, attr, converter)
+
         self.default_model = os.getenv(
-            "WHISPER_DEFAULT_MODEL", self.whisper.default_model
+            "WHISPER_DEFAULT_MODEL", str(self.whisper.default_model)
         )
         self.default_language = os.getenv("DEFAULT_LANGUAGE") or None
-        self.cuda_available = os.getenv("CUDA_AVAILABLE", "false").lower() == "true"
-        self.thread_join_timeout = float(os.getenv("THREAD_JOIN_TIMEOUT", "2.0"))
-        self.audio_queue_timeout = float(os.getenv("AUDIO_QUEUE_TIMEOUT", "1.0"))
         self.sample_width = int(os.getenv("SAMPLE_WIDTH", "2"))
-        self.log_level = os.getenv("LOG_LEVEL", "INFO")
-        self.max_concurrent_transcriptions = int(
-            os.getenv("MAX_CONCURRENT_TRANSCRIPTIONS", "1")
+
+        self.cuda_available = self.device.prefer_cuda
+        self.thread_join_timeout = self.performance.thread_join_timeout
+        self.audio_queue_timeout = self.performance.audio_queue_timeout
+        self.log_level = self.logging.level
+        self.max_concurrent_transcriptions = (
+            self.performance.max_concurrent_transcriptions
         )
 
-        # Override default chunk duration if set in environment
         env_chunk_duration = os.getenv("DEFAULT_CHUNK_DURATION")
         if env_chunk_duration:
             self.transcription.default_chunk_duration = float(env_chunk_duration)
 
     def get_device_name(self) -> str:
-        """Get the device name for processing."""
+        if self.device.device_selection_strategy == "auto":
+            if self.device.auto_detect:
+                try:
+                    import torch
+
+                    if torch.cuda.is_available() and self.device.prefer_cuda:
+                        return "cuda"
+                except ImportError:
+                    pass
+
+                if self.device.prefer_cuda and self.cuda_available:
+                    return "cuda"
+
+            if self.device.fallback_to_cpu:
+                return "cpu"
+
         return "cuda" if self.cuda_available else "cpu"
 
+    def _validate_item_in_list(
+        self, item: str, valid_list: List[str], item_type: str
+    ) -> bool:
+        if item in valid_list:
+            return True
+        logger.error("Invalid %s: %s", item_type, item)
+        return False
+
     def validate_model(self, model_name: str) -> bool:
-        """Validate if model name is supported."""
-        return model_name in self.whisper.available_models
+        return self._validate_item_in_list(
+            model_name, self.whisper.available_models, "model"
+        )
 
     def validate_output_format(self, format_name: str) -> bool:
-        """Validate if output format is supported."""
-        return format_name in self.output.supported_formats
+        return self._validate_item_in_list(
+            format_name, self.output.supported_formats, "output format"
+        )
 
     def validate_audio_file(self, file_path: str) -> bool:
-        """Validate if audio file extension is supported."""
         file_ext = Path(file_path).suffix.lower()
-        return file_ext in self.output.supported_audio_extensions
+        return self._validate_item_in_list(
+            file_ext, self.output.supported_audio_extensions, "audio format"
+        )
+
+    def validate_file_input(self, file_path: str) -> bool:
+        if not self.validation.check_file_exists:
+            return True
+
+        if not os.path.exists(file_path):
+            logger.error("File not found: %s", file_path)
+            return False
+
+        if self.validation.validate_audio_format:
+            if not self.validate_audio_file(file_path):
+                logger.error("Unsupported audio format: %s", file_path)
+                return False
+
+        if self.validation.max_file_size_mb > 0:
+            file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+            if file_size_mb > self.validation.max_file_size_mb:
+                logger.error(
+                    "File too large: %.1fMB > %dMB",
+                    file_size_mb,
+                    self.validation.max_file_size_mb,
+                )
+                return False
+
+        return True
+
+    def validate_cli_inputs(self, model: str, output_format: str, **kwargs) -> bool:
+        if not self.validation.validate_model_name:
+            return True
+
+        if self.validation.validate_model_name and not self.validate_model(model):
+            logger.error("Invalid model: %s", model)
+            return False
+
+        if self.validation.validate_output_format and not self.validate_output_format(
+            output_format
+        ):
+            logger.error("Invalid output format: %s", output_format)
+            return False
+
+        return True
+
+    def get_effective_device(self, requested_device: Optional[str] = None) -> str:
+        if requested_device:
+            return requested_device
+
+        return self.get_device_name()
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert configuration to dictionary."""
-        return {
-            "audio": {
-                "chunk_size": self.audio.chunk_size,
-                "format": "paInt16",  # Simplified for serialization
-                "channels": self.audio.channels,
-                "rate": self.audio.rate,
-                "silence_threshold": self.audio.silence_threshold,
-                "silence_limit": self.audio.silence_limit,
-            },
-            "whisper": {
-                "available_models": self.whisper.available_models,
-                "default_model": self.whisper.default_model,
-            },
-            "output": {
-                "default_format": self.output.default_format,
-                "supported_formats": self.output.supported_formats,
-                "supported_audio_extensions": self.output.supported_audio_extensions,
-            },
-            "transcription": {
-                "default_chunk_duration": self.transcription.default_chunk_duration,
-                "auto_punctuation": self.transcription.auto_punctuation,
-                "punctuation_chars": self.transcription.punctuation_chars,
-                "add_word_count": self.transcription.add_word_count,
-                "clean_text": self.transcription.clean_text,
-            },
-            "srt": {
-                "time_format": self.srt.time_format,
-                "max_line_length": self.srt.max_line_length,
-                "max_lines_per_subtitle": self.srt.max_lines_per_subtitle,
-            },
-            "processing": {
-                "exception_on_overflow": self.processing.exception_on_overflow,
-                "temp_file_suffix": self.processing.temp_file_suffix,
-                "batch_processing_enabled": self.processing.batch_processing_enabled,
-            },
-            "environment": {
-                "default_model": self.default_model,
-                "default_language": self.default_language,
-                "cuda_available": self.cuda_available,
-                "thread_join_timeout": self.thread_join_timeout,
-                "audio_queue_timeout": self.audio_queue_timeout,
-                "sample_width": self.sample_width,
-                "log_level": self.log_level,
-                "max_concurrent_transcriptions": self.max_concurrent_transcriptions,
-            },
+        result = {}
+
+        config_sections = [
+            ("audio", self.audio),
+            ("whisper", self.whisper),
+            ("output", self.output),
+            ("transcription", self.transcription),
+            ("srt", self.srt),
+            ("processing", self.processing),
+            ("cli", self.cli),
+            ("device", self.device),
+            ("logging", self.logging),
+            ("validation", self.validation),
+            ("performance", self.performance),
+        ]
+
+        for section_name, config_obj in config_sections:
+            if hasattr(config_obj, "__dataclass_fields__"):
+                section_dict = {}
+                for field in fields(config_obj):
+                    value = getattr(config_obj, field.name)
+                    if field.name == "format" and section_name == "audio":
+                        section_dict[field.name] = "paInt16"
+                    else:
+                        section_dict[field.name] = value
+                result[section_name] = section_dict
+
+        result["environment"] = {
+            "default_model": self.default_model,
+            "default_language": self.default_language,
+            "cuda_available": self.cuda_available,
+            "thread_join_timeout": self.thread_join_timeout,
+            "audio_queue_timeout": self.audio_queue_timeout,
+            "sample_width": self.sample_width,
+            "log_level": self.log_level,
+            "max_concurrent_transcriptions": (self.max_concurrent_transcriptions),
         }
 
+        return result
 
-# Global configuration instance
+
 config = Config()

@@ -1,22 +1,23 @@
-import os
-import time
-import threading
-import torch
-import queue
-import wave
-from wave import Wave_write
-import tempfile
-from enum import Enum
-from typing import Optional, Dict, Any, List, Callable, Iterator
-from contextlib import contextmanager
 import glob
 import json
+import os
+import queue
+import tempfile
+import threading
+import time
+import wave
+
+from contextlib import contextmanager
+from enum import Enum
+from typing import Any, Callable, Dict, Iterator, List, Optional
+from wave import Wave_write
+
+import pyaudio
+import torch
 
 import whisper
-import pyaudio
-
-from lib.logger_config import logger
 from lib.config import config
+from lib.logger_config import logger
 
 
 class OutputFormat(Enum):
@@ -54,7 +55,6 @@ def audio_stream(audio_config) -> Iterator[pyaudio.Stream]:
         audio.terminate()
 
 
-# Use configuration values
 DEFAULT_MODEL = config.default_model
 DEVICE_NAME = config.get_device_name()
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -369,44 +369,62 @@ class TranscriptionPipeline:
             processed_result["formatted"] = result
         return processed_result
 
-    def _save_results(self, result: Dict[str, Any], output_path: str, format_type: str):
-        if format_type == "json":
-            with open(output_path, "w", encoding="utf-8") as f:
-                json.dump(result, f, indent=2, ensure_ascii=False)
-        elif format_type == "srt" and "srt" in result:
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write(result["srt"])
-        else:
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write(result.get("cleaned_text", result.get("text", "")))
+    def _save_to_file(
+        self, data: Any, output_path: str, format_type: str, is_batch: bool = False
+    ) -> None:
+        with open(output_path, "w", encoding="utf-8") as f:
+            if format_type == "json":
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            elif format_type == "srt" and not is_batch and "srt" in data:
+                f.write(data["srt"])
+            elif is_batch and format_type != "json":
+                self._write_batch_text_format(f, data)
+            else:
+                # Single result text format
+                if is_batch:
+                    # This shouldn't happen but handle gracefully
+                    self._write_batch_text_format(f, data)
+                else:
+                    text_content = data.get("cleaned_text", data.get("text", ""))
+                    f.write(text_content)
+
+    def _write_batch_text_format(
+        self, file_handle, results: List[Dict[str, Any]]
+    ) -> None:
+        for result in results:
+            file_handle.write(f"File: {result.get('file_path', 'unknown')}\n")
+            if "error" in result:
+                file_handle.write(f"Error: {result['error']}\n")
+            else:
+                text_content = result.get("cleaned_text", result.get("text", ""))
+                file_handle.write(f"Text: {text_content}\n")
+                file_handle.write("Language: %s\n" % result.get("language", "unknown"))
+                file_handle.write("Word Count: %d\n" % result.get("word_count", 0))
+            file_handle.write("\n" + "-" * 40 + "\n\n")
+
+    def _save_results(
+        self, result: Dict[str, Any], output_path: str, format_type: str
+    ) -> None:
+        """Save single transcription result."""
+        self._save_to_file(result, output_path, format_type, is_batch=False)
 
     def _save_batch_results(
         self, results: List[Dict[str, Any]], output_path: str, format_type: str
-    ):
-        if format_type == "json":
-            with open(output_path, "w", encoding="utf-8") as f:
-                json.dump(results, f, indent=2, ensure_ascii=False)
-        else:
-            with open(output_path, "w", encoding="utf-8") as f:
-                for result in results:
-                    f.write(f"File: {result.get('file_path', 'unknown')}\n")
-                    if "error" in result:
-                        f.write(f"Error: {result['error']}\n")
-                    else:
-                        f.write(
-                            f"Text: {result.get('cleaned_text', result.get('text', ''))}\n"
-                        )
-                        f.write("\nLanguage: %s\n" % result.get("language", "unknown"))
-                        f.write("Word Count: %d\n" % result.get("word_count", 0))
-                    f.write("\n" + "-" * 40 + "\n\n")
+    ) -> None:
+        """Save multiple transcription results."""
+        self._save_to_file(results, output_path, format_type, is_batch=True)
 
-    def _save_live_results(self, results: List[Dict[str, Any]], output_path: str):
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(results, f, indent=2, ensure_ascii=False)
+    def _save_live_results(
+        self, results: List[Dict[str, Any]], output_path: str
+    ) -> None:
+        """Save live transcription results (always JSON format)."""
+        self._save_to_file(results, output_path, "json", is_batch=True)
 
-    def _post_process_transcription(self, result: Dict[str, Any]) -> Dict[str, Any]:
-        text = result.get("text", "")
+    def _apply_text_processing(self, text: str) -> Dict[str, Any]:
+        """Apply consistent text processing rules."""
         cleaned_text = text.strip()
+
+        # Apply auto-punctuation if enabled
         if (
             config.transcription.auto_punctuation
             and cleaned_text
@@ -414,12 +432,24 @@ class TranscriptionPipeline:
         ):
             cleaned_text += "."
 
-        if config.transcription.add_word_count:
-            word_count = len(cleaned_text.split())
-            result["word_count"] = word_count
+        # Calculate word count if enabled
+        word_count = (
+            len(cleaned_text.split()) if config.transcription.add_word_count else 0
+        )
 
-        if config.transcription.clean_text:
-            result["cleaned_text"] = cleaned_text
+        return {
+            "original_text": text,
+            "cleaned_text": cleaned_text if config.transcription.clean_text else text,
+            "word_count": word_count,
+        }
+
+    def _post_process_transcription(self, result: Dict[str, Any]) -> Dict[str, Any]:
+        """Post-process transcription result with consistent text processing."""
+        text = result.get("text", "")
+        processed = self._apply_text_processing(text)
+
+        # Update result with processed text
+        result.update(processed)
 
         return result
 

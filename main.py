@@ -3,6 +3,7 @@ import os
 from typing import List, Optional
 import typer
 from lib.logger_config import logger
+from lib.config import config
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "Src"))
 
@@ -20,46 +21,90 @@ except ImportError as e:
 app = typer.Typer(help="Audio Transcription Pipeline")
 
 
-@app.command()
-def file(
-    input: str = typer.Argument(..., help="Input audio file path"),
-    output: Optional[str] = typer.Option(
-        None, "--output", "-o", help="Output file path"
-    ),
-    model: str = typer.Option(
-        "base",
+def create_model_option():
+    return typer.Option(
+        config.cli.default_model,
         "--model",
         "-m",
-        help="Whisper model to use (default: base)",
+        help=f"Whisper model to use (default: {config.cli.default_model})",
         show_default=True,
         case_sensitive=False,
         rich_help_panel="Model Options",
-    ),
-    language: Optional[str] = typer.Option(
+    )
+
+
+def create_language_option():
+    return typer.Option(
         None, "--language", "-l", help="Language code (e.g., en, hi, es)"
-    ),
-    format: OutputFormat = typer.Option(
-        OutputFormat.text,
-        "--format",
-        "-f",
-        help="Output format (default: text)",
-        case_sensitive=False,
-        rich_help_panel="Output Options",
-    ),
-    device: Optional[str] = typer.Option(
+    )
+
+
+def create_device_option():
+    return typer.Option(
         os.environ.get("TRANSCRIBE_DEVICE", None),
         "--device",
         "-d",
         help="Device to use (cpu/cuda). Default: env TRANSCRIBE_DEVICE or auto",
+    )
+
+
+def create_output_option():
+    return typer.Option(None, "--output", "-o", help="Output file path")
+
+
+def create_pipeline_with_validation(
+    model: str,
+    language: Optional[str],
+    device: Optional[str],
+    format_value: Optional[str] = None,
+    input_file: Optional[str] = None,
+) -> TranscriptionPipeline:
+    if config.cli.validate_inputs:
+        if format_value and not config.validate_cli_inputs(
+            model=model, output_format=format_value
+        ):
+            raise typer.Exit(1)
+        if input_file and not config.validate_file_input(input_file):
+            raise typer.Exit(1)
+    effective_device = config.get_effective_device(device)
+    return TranscriptionPipeline(
+        model_name=model, language=language, device=effective_device
+    )
+
+
+@app.command()
+def file(
+    input_file: str = typer.Argument(..., help="Input audio file path"),
+    output: Optional[str] = create_output_option(),
+    model: str = create_model_option(),
+    language: Optional[str] = create_language_option(),
+    format_option: OutputFormat = typer.Option(
+        getattr(OutputFormat, config.cli.default_output_format.upper()),
+        "--format",
+        "-f",
+        help=f"Output format (default: {config.cli.default_output_format})",
+        case_sensitive=False,
+        rich_help_panel="Output Options",
     ),
+    device: Optional[str] = create_device_option(),
 ):
-    """Transcribe a single audio file."""
-    pipeline = TranscriptionPipeline(model_name=model, language=language, device=device)
+    format_value = (
+        format_option.value if hasattr(format_option, "value") else format_option
+    )
+
+    pipeline = create_pipeline_with_validation(
+        model=model,
+        language=language,
+        device=device,
+        format_value=format_value,
+        input_file=input_file,
+    )
+
     result = pipeline.transcribe(
         mode="file",
-        input_paths=[input],
+        input_paths=[input_file],
         output_path=output,
-        output_format=format.value if hasattr(format, "value") else format,
+        output_format=format_value,
         language=language,
     )
     if not output:
@@ -69,43 +114,28 @@ def file(
 @app.command()
 def files(
     inputs: List[str] = typer.Argument(..., help="Input audio file paths or patterns"),
-    output: Optional[str] = typer.Option(
-        None, "--output", "-o", help="Output file path"
-    ),
-    model: str = typer.Option(
-        "base",
-        "--model",
-        "-m",
-        help="Whisper model to use (default: base)",
-        show_default=True,
-        case_sensitive=False,
-        rich_help_panel="Model Options",
-    ),
-    language: Optional[str] = typer.Option(
-        None, "--language", "-l", help="Language code (e.g., en, hi, es)"
-    ),
-    format: str = typer.Option(
-        "text",
+    output: Optional[str] = create_output_option(),
+    model: str = create_model_option(),
+    language: Optional[str] = create_language_option(),
+    format_option: str = typer.Option(
+        config.cli.default_output_format,
         "--format",
         "-f",
-        help="Output format (default: text)",
+        help=f"Output format (default: {config.cli.default_output_format})",
         case_sensitive=False,
         rich_help_panel="Output Options",
     ),
-    device: Optional[str] = typer.Option(
-        os.environ.get("TRANSCRIBE_DEVICE", None),
-        "--device",
-        "-d",
-        help="Device to use (cpu/cuda). Default: env TRANSCRIBE_DEVICE or auto",
-    ),
+    device: Optional[str] = create_device_option(),
 ):
-    """Transcribe multiple audio files."""
-    pipeline = TranscriptionPipeline(model_name=model, language=language, device=device)
+    pipeline = create_pipeline_with_validation(
+        model=model, language=language, device=device, format_value=format_option
+    )
+
     result = pipeline.transcribe(
         mode="files",
         input_paths=inputs,
         output_path=output,
-        output_format=format,
+        output_format=format_option,
         language=language,
     )
     if not output:
@@ -114,37 +144,24 @@ def files(
 
 @app.command()
 def live(
-    output: Optional[str] = typer.Option(
-        None, "--output", "-o", help="Output file path for saving results"
-    ),
-    model: str = typer.Option(
-        "base",
-        "--model",
-        "-m",
-        help="Whisper model to use (default: base)",
-        show_default=True,
-        case_sensitive=False,
-        rich_help_panel="Model Options",
-    ),
-    language: Optional[str] = typer.Option(
-        None, "--language", "-l", help="Language code (e.g., en, hi, es)"
-    ),
+    output: Optional[str] = create_output_option(),
+    model: str = create_model_option(),
+    language: Optional[str] = create_language_option(),
     chunk_duration: float = typer.Option(
-        5.0,
+        config.cli.default_chunk_duration,
         "--chunk-duration",
         "-c",
-        help="Audio chunk duration in seconds (default: 5.0)",
+        help=(
+            f"Audio chunk duration in seconds "
+            f"(default: {config.cli.default_chunk_duration})"
+        ),
         show_default=True,
     ),
-    device: Optional[str] = typer.Option(
-        os.environ.get("TRANSCRIBE_DEVICE", None),
-        "--device",
-        "-d",
-        help="Device to use (cpu/cuda). Default: env TRANSCRIBE_DEVICE or auto",
-    ),
+    device: Optional[str] = create_device_option(),
 ):
-    """Start live audio transcription."""
-    pipeline = TranscriptionPipeline(model_name=model, language=language, device=device)
+    pipeline = create_pipeline_with_validation(
+        model=model, language=language, device=device
+    )
 
     def live_callback(res):
         logger.info("Live: %s", res)
