@@ -4,3 +4,6 @@
 [submodule "whisper.cpp"]
 	path = whisper.cpp
 	url = git@github.com:Raghav-56/whisper.cpp.git
+[submodule "NeMo"]
+	path = NeMo
+	url = git@github.com:Raghav-56/NeMo.git
