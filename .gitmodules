@@ -7,3 +7,12 @@
 [submodule "NeMo"]
 	path = NeMo
 	url = git@github.com:Raghav-56/NeMo.git
+[submodule "pyannote-audio"]
+	path = pyannote-audio
+	url = git@github.com:Raghav-56/pyannote-audio.git
+[submodule "FFmpeg"]
+	path = FFmpeg
+	url = git@github.com:Raghav-56/FFmpeg.git
+[submodule "ffmpeg-normalize"]
+	path = ffmpeg-normalize
+	url = git@github.com:Raghav-56/ffmpeg-normalize.git

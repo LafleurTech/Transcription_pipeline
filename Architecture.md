@@ -1,6 +1,5 @@
 # Transcription Pipeline Structure
 
-
 ## Architecture & Flow Diagram
 
 ```mermaid
@@ -119,6 +118,7 @@ flowchart TD
 ```
 
 **Legend:**
+
 - **Input (Orange)**: Audio sources and initial processing
 - **Process (Green)**: Computational stages that transform the data
 - **Data (Blue Stadium)**: Information flowing between processes
@@ -131,7 +131,7 @@ flowchart TD
 
 ## File Structure
 
-```
+``` txt
 Transcription_pipeline/
 ├── main.py                   # Main CLI orchestrator
 ├── requirement.txt           # Python dependencies

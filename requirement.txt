@@ -7,6 +7,8 @@ torchaudio>=0.13.0
 # Audio processing
 pyaudio>=0.2.11
 ffmpeg-python>=0.2.0
+noisereduce
+ffmpeg-normalize
 
 # Configuration
 python-dotenv>=1.0.0
