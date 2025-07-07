@@ -65,5 +65,28 @@
     "audio_queue_timeout": 1.0,
     "batch_size": 1,
     "enable_optimizations": true
+  },
+  "diarization": {
+    "default_model": "medium.en",
+    "default_batch_size": 8,
+    "available_models": ["msdd"],
+    "enable_stemming": true,
+    "suppress_numerals": false,
+    "temp_directory": "temp_outputs",
+    "audio_processing_modes": ["with_stemming", "without_stemming"],
+    "supported_output_formats": ["txt", "srt", "json"],
+    "forced_alignment": {
+      "enable": true,
+      "batch_size": 8
+    },
+    "punctuation_restoration": {
+      "enable": true,
+      "supported_languages": ["en", "hi"]
+    },
+    "vocal_separation": {
+      "model": "htdemucs",
+      "stems": "vocals",
+      "output_dir": "temp_outputs"
+    }
   }
 }

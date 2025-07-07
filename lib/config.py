@@ -123,6 +123,56 @@ class PerformanceConfig(BaseConfig):
     enable_optimizations: bool
 
 
+@dataclass
+class ForcedAlignmentConfig(BaseConfig):
+    enable: bool
+    batch_size: int
+
+
+@dataclass
+class PunctuationRestorationConfig(BaseConfig):
+    enable: bool
+    supported_languages: List[str]
+
+
+@dataclass
+class VocalSeparationConfig(BaseConfig):
+    model: str
+    stems: str
+    output_dir: str
+
+
+@dataclass
+class DiarizationConfig(BaseConfig):
+    default_model: str
+    default_batch_size: int
+    available_models: List[str]
+    enable_stemming: bool
+    suppress_numerals: bool
+    temp_directory: str
+    audio_processing_modes: List[str]
+    supported_output_formats: List[str]
+    forced_alignment: ForcedAlignmentConfig
+    punctuation_restoration: PunctuationRestorationConfig
+    vocal_separation: VocalSeparationConfig
+
+    @classmethod
+    def _handle_special_fields(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+        if "forced_alignment" in data:
+            data["forced_alignment"] = ForcedAlignmentConfig.from_dict(
+                data["forced_alignment"]
+            )
+        if "punctuation_restoration" in data:
+            data["punctuation_restoration"] = PunctuationRestorationConfig.from_dict(
+                data["punctuation_restoration"]
+            )
+        if "vocal_separation" in data:
+            data["vocal_separation"] = VocalSeparationConfig.from_dict(
+                data["vocal_separation"]
+            )
+        return data
+
+
 class Config:
     def __init__(self, config_path: Optional[str] = None):
         self.config_path = config_path or self._get_default_config_path()
@@ -147,6 +197,7 @@ class Config:
         self.logging = LoggingConfig.from_dict(config_data["logging"])
         self.validation = ValidationConfig.from_dict(config_data["validation"])
         self.performance = PerformanceConfig.from_dict(config_data["performance"])
+        self.diarization = DiarizationConfig.from_dict(config_data["diarization"])
         logger.info("Configuration loaded from: %s", self.config_path)
 
     def _apply_env_override(
@@ -177,6 +228,35 @@ class Config:
             ("CLI_DEFAULT_OUTPUT_FORMAT", self.cli, "default_output_format"),
             ("CLI_DEFAULT_CHUNK_DURATION", self.cli, "default_chunk_duration", float),
             ("LOG_LEVEL", self.logging, "level"),
+            # Diarization environment variables
+            ("DIARIZATION_DEFAULT_MODEL", self.diarization, "default_model"),
+            ("DIARIZATION_BATCH_SIZE", self.diarization, "default_batch_size", int),
+            (
+                "DIARIZATION_ENABLE_STEMMING",
+                self.diarization,
+                "enable_stemming",
+                lambda x: x.lower() == "true",
+            ),
+            (
+                "DIARIZATION_SUPPRESS_NUMERALS",
+                self.diarization,
+                "suppress_numerals",
+                lambda x: x.lower() == "true",
+            ),
+            ("DIARIZATION_TEMP_DIRECTORY", self.diarization, "temp_directory"),
+            (
+                "FORCED_ALIGNMENT_ENABLE",
+                self.diarization.forced_alignment,
+                "enable",
+                lambda x: x.lower() == "true",
+            ),
+            (
+                "PUNCTUATION_RESTORATION_ENABLE",
+                self.diarization.punctuation_restoration,
+                "enable",
+                lambda x: x.lower() == "true",
+            ),
+            ("VOCAL_SEPARATION_MODEL", self.diarization.vocal_separation, "model"),
         ]
 
         for mapping in env_mappings:
@@ -307,6 +387,7 @@ class Config:
             ("logging", self.logging),
             ("validation", self.validation),
             ("performance", self.performance),
+            ("diarization", self.diarization),
         ]
 
         for section_name, config_obj in config_sections:

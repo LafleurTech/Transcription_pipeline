@@ -30,3 +30,14 @@ typer>=0.9.0
 # Development (optional)
 # black
 # flake8
+
+cython
+nemo-toolkit[asr]
+faster-whisper
+omegaconf
+nltk
+pydub
+
+git+https://github.com/MahmoudAshraf97/demucs.git
+git+https://github.com/oliverguhr/deepmultilingualpunctuation.git
+git+https://github.com/MahmoudAshraf97/ctc-forced-aligner.git

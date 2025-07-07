@@ -16,3 +16,6 @@
 [submodule "ffmpeg-normalize"]
 	path = ffmpeg-normalize
 	url = git@github.com:Raghav-56/ffmpeg-normalize.git
+[submodule "faster-whisper"]
+	path = faster-whisper
+	url = git@github.com:Raghav-56/faster-whisper.git

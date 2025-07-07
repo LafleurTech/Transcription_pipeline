@@ -12,6 +12,7 @@ try:
         TranscriptionPipeline,
         OutputFormat,
     )
+    from Diarization import DiarizationPipeline
 except ImportError as e:
     logger.error("Error importing transcription module: %s", e)
     logger.info("Make sure all dependencies are installed:")
@@ -44,12 +45,41 @@ def create_device_option():
         os.environ.get("TRANSCRIBE_DEVICE", None),
         "--device",
         "-d",
-        help="Device to use (cpu/cuda). Default: env TRANSCRIBE_DEVICE or auto",
+        help=("Device to use (cpu/cuda). Default: env TRANSCRIBE_DEVICE or auto"),
     )
 
 
 def create_output_option():
     return typer.Option(None, "--output", "-o", help="Output file path")
+
+
+def create_batch_size_option():
+    return typer.Option(
+        8,
+        "--batch-size",
+        "-b",
+        help="Batch size for inference (default: 8)",
+        show_default=True,
+        rich_help_panel="Processing Options",
+    )
+
+
+def create_suppress_numerals_option():
+    return typer.Option(
+        False,
+        "--suppress-numerals",
+        help="Suppress numerical digits in transcription",
+        rich_help_panel="Processing Options",
+    )
+
+
+def create_no_stem_option():
+    return typer.Option(
+        False,
+        "--no-stem",
+        help="Disable source separation (stemming)",
+        rich_help_panel="Processing Options",
+    )
 
 
 def create_pipeline_with_validation(
@@ -177,6 +207,175 @@ def live(
     )
     if not output:
         logger.info("Live results: %s", result)
+
+
+@app.command()
+def diarize(
+    input_file: str = typer.Argument(..., help="Input audio file path"),
+    output: Optional[str] = create_output_option(),
+    model: str = create_model_option(),
+    language: Optional[str] = create_language_option(),
+    device: Optional[str] = create_device_option(),
+    batch_size: int = create_batch_size_option(),
+    suppress_numerals: bool = create_suppress_numerals_option(),
+    no_stem: bool = create_no_stem_option(),
+):
+    """Perform speaker diarization on an audio file."""
+    if config.cli.validate_inputs:
+        if not config.validate_file_input(input_file):
+            raise typer.Exit(1)
+
+    effective_device = config.get_effective_device(device)
+
+    diarizer = DiarizationPipeline(
+        model_name=model,
+        device=effective_device,
+        batch_size=batch_size,
+        suppress_numerals=suppress_numerals,
+        enable_stemming=not no_stem,
+    )
+
+    try:
+        result = diarizer.process_audio(
+            audio_path=input_file,
+            language=language,
+            output_formats=["txt", "srt"],
+            output_dir=output,
+        )
+
+        if result.get("success"):
+            logger.info("Diarization completed successfully!")
+            output_files = result.get("output_files", {})
+            if "txt" in output_files:
+                logger.info("Transcript saved to: %s", output_files["txt"])
+            if "srt" in output_files:
+                logger.info("SRT file saved to: %s", output_files["srt"])
+
+            # Log additional info
+            if "language" in result:
+                logger.info("Detected language: %s", result["language"])
+            if "speaker_count" in result:
+                logger.info("Number of speakers detected: %d", result["speaker_count"])
+            if "word_count" in result:
+                logger.info("Total words: %d", result["word_count"])
+        else:
+            logger.error("Diarization failed: %s", result.get("error", "Unknown error"))
+            raise typer.Exit(1)
+
+    except Exception as e:
+        logger.error("Failed to perform diarization: %s", e)
+        raise typer.Exit(1)
+
+
+@app.command()
+def diarize_files(
+    inputs: List[str] = typer.Argument(..., help="Input audio file paths or patterns"),
+    output: Optional[str] = create_output_option(),
+    model: str = create_model_option(),
+    language: Optional[str] = create_language_option(),
+    device: Optional[str] = create_device_option(),
+    batch_size: int = create_batch_size_option(),
+    suppress_numerals: bool = create_suppress_numerals_option(),
+    no_stem: bool = create_no_stem_option(),
+):
+    """Perform speaker diarization on multiple audio files."""
+    import glob
+
+    effective_device = config.get_effective_device(device)
+
+    # Expand file patterns
+    file_paths = []
+    for pattern in inputs:
+        if "*" in pattern or "?" in pattern:
+            file_paths.extend(glob.glob(pattern))
+        else:
+            file_paths.append(pattern)
+
+    # Filter existing files
+    existing_files = [f for f in file_paths if os.path.exists(f)]
+    if not existing_files:
+        logger.error("No valid audio files found.")
+        raise typer.Exit(1)
+
+    logger.info("Found %d files to diarize", len(existing_files))
+
+    diarizer = DiarizationPipeline(
+        model_name=model,
+        device=effective_device,
+        batch_size=batch_size,
+        suppress_numerals=suppress_numerals,
+        enable_stemming=not no_stem,
+    )
+
+    try:
+        results = []
+        for file_path in existing_files:
+            logger.info("Processing file: %s", file_path)
+            try:
+                result = diarizer.process_audio(
+                    audio_path=file_path,
+                    language=language,
+                    output_formats=["txt", "srt"],
+                    output_dir=output,
+                )
+
+                if result.get("success"):
+                    results.append(
+                        {
+                            "success": True,
+                            "audio_file": file_path,
+                            "output_files": result.get("output_files", {}),
+                            "language": result.get("language"),
+                            "speaker_count": result.get("speaker_count"),
+                            "word_count": result.get("word_count"),
+                        }
+                    )
+                    logger.info("Successfully processed: %s", file_path)
+                else:
+                    results.append(
+                        {
+                            "success": False,
+                            "audio_file": file_path,
+                            "error": result.get("error", "Unknown error"),
+                        }
+                    )
+                    logger.error(
+                        "Failed to process %s: %s",
+                        file_path,
+                        result.get("error", "Unknown error"),
+                    )
+            except Exception as e:
+                results.append(
+                    {
+                        "success": False,
+                        "audio_file": file_path,
+                        "error": str(e),
+                    }
+                )
+                logger.error("Failed to process %s: %s", file_path, str(e))
+
+        successful = sum(1 for r in results if r["success"])
+        failed = len(results) - successful
+
+        logger.info(
+            "Diarization completed: %d successful, %d failed",
+            successful,
+            failed,
+        )
+
+        if failed > 0:
+            logger.warning("Some files failed to process:")
+            for result in results:
+                if not result["success"]:
+                    logger.warning(
+                        "  %s: %s",
+                        result["audio_file"],
+                        result.get("error", "Unknown error"),
+                    )
+
+    except Exception as e:
+        logger.error("Failed to perform batch diarization: %s", e)
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":
