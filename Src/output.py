@@ -62,3 +62,43 @@ def format_srt_time(seconds: float) -> str:
     seconds_val = millis // 1000
     millis %= 1000
     return f"{hours:02d}:{minutes:02d}:{seconds_val:02d},{millis:03d}"
+
+
+def generate_diarization_srt(sentence_speaker_mapping: List[Dict[str, Any]]) -> str:
+
+    srt_content = []
+    for i, segment in enumerate(sentence_speaker_mapping, 1):
+        start_time = format_srt_time(segment.get("start_time", 0))
+        end_time = format_srt_time(segment.get("end_time", 0))
+        text = segment.get("text", "").strip().replace("-->", "->")
+        speaker = segment.get("speaker", "Unknown")
+
+        srt_content.append(f"{i}\n{start_time} --> {end_time}\n{speaker}: {text}\n")
+    return "\n".join(srt_content)
+
+
+def write_diarization_srt(
+    sentence_speaker_mapping: List[Dict[str, Any]], file_handle
+) -> None:
+
+    for i, segment in enumerate(sentence_speaker_mapping, 1):
+        start_time = format_srt_time(segment.get("start_time", 0))
+        end_time = format_srt_time(segment.get("end_time", 0))
+        text = segment.get("text", "").strip().replace("-->", "->")
+        speaker = segment.get("speaker", "Unknown")
+
+        print(
+            f"{i}\n" f"{start_time} --> {end_time}\n" f"{speaker}: {text}\n",
+            file=file_handle,
+            flush=True,
+        )
+
+
+def write_diarization_transcript(
+    sentence_speaker_mapping: List[Dict[str, Any]], file_handle
+) -> None:
+
+    for segment in sentence_speaker_mapping:
+        text = segment.get("text", "").strip()
+        speaker = segment.get("speaker", "Unknown")
+        print(f"{speaker}: {text}", file=file_handle, flush=True)
