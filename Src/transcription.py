@@ -1,29 +1,18 @@
-import glob
-import json
 import os
 import queue
-import tempfile
 import threading
 import time
-import wave
-
-from contextlib import contextmanager
 from enum import Enum
-from typing import Any, Callable, Dict, Iterator, List, Optional
-from wave import Wave_write
+from typing import Any, Callable, Dict, List, Optional
 
-import pyaudio
 import torch
 
 import whisper
 from lib.config import config
 from lib.logger_config import logger
-
-
-class OutputFormat(Enum):
-    TEXT = "text"
-    JSON = "json"
-    SRT = "srt"
+from Src.input import audio_data_to_wav_file, batch_audio_files, live_audio_chunks
+from Src.output import OutputFormat, generate_srt, save_to_file
+from Src.postprocess import process_live_transcription, process_transcription_result
 
 
 class WhisperModel(Enum):
@@ -33,26 +22,6 @@ class WhisperModel(Enum):
     MEDIUM = "medium"
     LARGE = "large"
     TURBO = "turbo"
-
-
-@contextmanager
-def audio_stream(audio_config) -> Iterator[pyaudio.Stream]:
-    audio = pyaudio.PyAudio()
-    stream = None
-    try:
-        stream = audio.open(
-            format=audio_config.format,
-            channels=audio_config.channels,
-            rate=audio_config.rate,
-            input=True,
-            frames_per_buffer=audio_config.chunk_size,
-        )
-        yield stream
-    finally:
-        if stream is not None:
-            stream.stop_stream()
-            stream.close()
-        audio.terminate()
 
 
 DEFAULT_MODEL = config.default_model
@@ -167,27 +136,10 @@ class AudioTranscriber:
 
     def _record_audio_thread(self, chunk_duration: float) -> None:
         try:
-            with audio_stream(self.audio_config) as stream:
-                logger.info("Audio recording started")
-                frames: List[bytes] = []
-                chunk_frames = int(self.audio_config.rate * chunk_duration)
-                current_frames = 0
-                while self.is_recording:
-                    data = stream.read(
-                        self.audio_config.chunk_size,
-                        exception_on_overflow=config.processing.exception_on_overflow,
-                    )
-                    frames.append(data)
-                    current_frames += self.audio_config.chunk_size
-                    if current_frames >= chunk_frames:
-                        audio_data = b"".join(frames)
-                        self.audio_queue.put(audio_data)
-                        frames = []
-                        current_frames = 0
-                if frames:
-                    audio_data = b"".join(frames)
-                    self.audio_queue.put(audio_data)
-                logger.info("Audio recording stopped")
+            for audio_data in live_audio_chunks(
+                self.audio_config, chunk_duration, config, lambda: self.is_recording
+            ):
+                self.audio_queue.put(audio_data)
         except Exception as e:
             logger.error("Audio recording error: %s", e)
             self.is_recording = False
@@ -215,53 +167,28 @@ class AudioTranscriber:
         callback: Optional[Callable[[Dict[str, Any]], None]] = None,
     ) -> Dict[str, Any]:
         try:
-            with tempfile.NamedTemporaryFile(
-                suffix=config.processing.temp_file_suffix
-            ) as temp_file:
-                with wave.open(temp_file.name, "wb") as wav_file:
-                    wav_file: Wave_write
-                    wav_file.setnchannels(self.audio_config.channels)
-                    wav_file.setsampwidth(config.sample_width)
-                    wav_file.setframerate(self.audio_config.rate)
-                    wav_file.writeframes(audio_data)
+            temp_file_path = audio_data_to_wav_file(
+                audio_data, self.audio_config, config
+            )
 
-                lang = language or self.language
-                result = self.model.transcribe(temp_file.name, language=lang)
+            lang = language or self.language
+            result = self.model.transcribe(temp_file_path, language=lang)
+            os.unlink(temp_file_path)
 
-                text = result["text"].strip()
-                cleaned_text = text
-                if (
-                    config.transcription.auto_punctuation
-                    and cleaned_text
-                    and cleaned_text[-1] not in config.transcription.punctuation_chars
-                ):
-                    cleaned_text += "."
+            transcription = process_live_transcription(
+                result["text"].strip(),
+                result.get("language", "unknown"),
+                result.get("avg_logprob", 0),
+                result.get("segments", []),
+            )
 
-                word_count = (
-                    len(cleaned_text.split())
-                    if config.transcription.add_word_count
-                    else 0
-                )
+            if callback and transcription["text"]:
+                callback(transcription)
 
-                transcription: Dict[str, Any] = {
-                    "text": text,
-                    "language": result.get("language", "unknown"),
-                    "timestamp": time.time(),
-                    "confidence": result.get("avg_logprob", 0),
-                    "word_count": word_count,
-                    "cleaned_text": (
-                        cleaned_text if config.transcription.clean_text else text
-                    ),
-                    "segments": result.get("segments", []),
-                }
+            if transcription["text"]:
+                logger.info("Live transcription: %s", transcription["text"])
 
-                if callback and transcription["text"]:
-                    callback(transcription)
-
-                if transcription["text"]:
-                    logger.info("Live transcription: %s", transcription["text"])
-
-                return transcription
+            return transcription
         except Exception as e:
             logger.error("Transcription error: %s", e)
             return {"text": "", "language": "error", "error": str(e)}
@@ -311,13 +238,7 @@ class TranscriptionPipeline:
                 logger.info("Results saved to: %s", output_path)
             return result
         elif mode == "files":
-            file_paths = []
-            for pattern in input_paths or []:
-                if "*" in pattern or "?" in pattern:
-                    file_paths.extend(glob.glob(pattern))
-                else:
-                    file_paths.append(pattern)
-            existing_files = [f for f in file_paths if os.path.exists(f)]
+            existing_files = batch_audio_files(input_paths or [])
             if not existing_files:
                 logger.error("No valid audio files found.")
                 return []
@@ -362,114 +283,24 @@ class TranscriptionPipeline:
         self, file_path: str, output_format: str, language: Optional[str]
     ) -> Dict[str, Any]:
         result = self.transcriber.transcribe_file(file_path, language or self.language)
-        processed_result = self._post_process_transcription(result)
+        processed_result = process_transcription_result(result)
         if output_format == OutputFormat.SRT.value:
-            processed_result["srt"] = self._generate_srt(result["segments"])
+            processed_result["srt"] = generate_srt(result["segments"])
         elif output_format == OutputFormat.JSON.value:
             processed_result["formatted"] = result
         return processed_result
 
-    def _save_to_file(
-        self, data: Any, output_path: str, format_type: str, is_batch: bool = False
-    ) -> None:
-        with open(output_path, "w", encoding="utf-8") as f:
-            if format_type == "json":
-                json.dump(data, f, indent=2, ensure_ascii=False)
-            elif format_type == "srt" and not is_batch and "srt" in data:
-                f.write(data["srt"])
-            elif is_batch and format_type != "json":
-                self._write_batch_text_format(f, data)
-            else:
-                # Single result text format
-                if is_batch:
-                    # This shouldn't happen but handle gracefully
-                    self._write_batch_text_format(f, data)
-                else:
-                    text_content = data.get("cleaned_text", data.get("text", ""))
-                    f.write(text_content)
-
-    def _write_batch_text_format(
-        self, file_handle, results: List[Dict[str, Any]]
-    ) -> None:
-        for result in results:
-            file_handle.write(f"File: {result.get('file_path', 'unknown')}\n")
-            if "error" in result:
-                file_handle.write(f"Error: {result['error']}\n")
-            else:
-                text_content = result.get("cleaned_text", result.get("text", ""))
-                file_handle.write(f"Text: {text_content}\n")
-                file_handle.write("Language: %s\n" % result.get("language", "unknown"))
-                file_handle.write("Word Count: %d\n" % result.get("word_count", 0))
-            file_handle.write("\n" + "-" * 40 + "\n\n")
-
     def _save_results(
         self, result: Dict[str, Any], output_path: str, format_type: str
     ) -> None:
-        """Save single transcription result."""
-        self._save_to_file(result, output_path, format_type, is_batch=False)
+        save_to_file(result, output_path, format_type, is_batch=False)
 
     def _save_batch_results(
         self, results: List[Dict[str, Any]], output_path: str, format_type: str
     ) -> None:
-        """Save multiple transcription results."""
-        self._save_to_file(results, output_path, format_type, is_batch=True)
+        save_to_file(results, output_path, format_type, is_batch=True)
 
     def _save_live_results(
         self, results: List[Dict[str, Any]], output_path: str
     ) -> None:
-        """Save live transcription results (always JSON format)."""
-        self._save_to_file(results, output_path, "json", is_batch=True)
-
-    def _apply_text_processing(self, text: str) -> Dict[str, Any]:
-        """Apply consistent text processing rules."""
-        cleaned_text = text.strip()
-
-        # Apply auto-punctuation if enabled
-        if (
-            config.transcription.auto_punctuation
-            and cleaned_text
-            and cleaned_text[-1] not in config.transcription.punctuation_chars
-        ):
-            cleaned_text += "."
-
-        # Calculate word count if enabled
-        word_count = (
-            len(cleaned_text.split()) if config.transcription.add_word_count else 0
-        )
-
-        return {
-            "original_text": text,
-            "cleaned_text": cleaned_text if config.transcription.clean_text else text,
-            "word_count": word_count,
-        }
-
-    def _post_process_transcription(self, result: Dict[str, Any]) -> Dict[str, Any]:
-        """Post-process transcription result with consistent text processing."""
-        text = result.get("text", "")
-        processed = self._apply_text_processing(text)
-
-        # Update result with processed text
-        result.update(processed)
-
-        return result
-
-    def _generate_srt(self, segments: List[Dict[str, Any]]) -> str:
-        srt_content = []
-        for i, segment in enumerate(segments, 1):
-            start = segment.get("start", 0)
-            end = segment.get("end", 0)
-            start_time = self._format_srt_time(start)
-            end_time = self._format_srt_time(end)
-            text = segment.get("text", "").strip()
-            srt_content.append(f"{i}\n{start_time} --> {end_time}\n{text}\n")
-        return "\n".join(srt_content)
-
-    def _format_srt_time(self, seconds: float) -> str:
-        millis = int(seconds * 1000)
-        hours = millis // 3600000
-        millis %= 3600000
-        minutes = millis // 60000
-        millis %= 60000
-        seconds_val = millis // 1000
-        millis %= 1000
-        return f"{hours:02d}:{minutes:02d}:{seconds_val:02d},{millis:03d}"
+        save_to_file(results, output_path, "json", is_batch=True)
