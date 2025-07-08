@@ -19,10 +19,10 @@ from ctc_forced_aligner import (
 from deepmultilingualpunctuation import PunctuationModel
 from NeMo.nemo.collections.asr.models.msdd_models import NeuralDiarizer
 
-from lib.config import config
+from lib.config import config, OutputFormat, get_effective_device, ResourceCleanupMixin
 from lib.diarization_config import diarization_config_manager
 from lib.logger_config import logger
-from lib.nemo_helpers import (
+from Src.nemo_helpers import (
     DiarizationConfigManager,
     FileSystemUtility,
     LanguageProcessor,
@@ -41,12 +41,6 @@ class DiarizationModel(Enum):
 class AudioProcessingMode(Enum):
     WITH_STEMMING = "with_stemming"
     WITHOUT_STEMMING = "without_stemming"
-
-
-class OutputFormat(Enum):
-    TXT = "txt"
-    SRT = "srt"
-    JSON = "json"
 
 
 DEFAULT_MODEL = config.diarization.default_model
@@ -103,7 +97,7 @@ class AudioProcessor:
             sound.export(output_path, format="wav")
 
 
-class TranscriptionEngine:
+class TranscriptionEngine(ResourceCleanupMixin):
     def __init__(
         self,
         model_name: str = DEFAULT_MODEL,
@@ -154,14 +148,12 @@ class TranscriptionEngine:
         return full_transcript, info, segments
 
     def cleanup(self) -> None:
-        if self.model:
-            del self.model
-        if self.pipeline:
-            del self.pipeline
-        torch.cuda.empty_cache()
+        self.cleanup_model("model")
+        self.cleanup_model("pipeline")
+        self.cleanup_cuda()
 
 
-class ForcedAligner:
+class ForcedAligner(ResourceCleanupMixin):
     def __init__(self, device: str = str(DEVICE)):
         self.device = device
         self.model = None
@@ -202,9 +194,8 @@ class ForcedAligner:
         return word_timestamps
 
     def cleanup(self) -> None:
-        if self.model:
-            del self.model
-        torch.cuda.empty_cache()
+        self.cleanup_model("model")
+        self.cleanup_cuda()
 
 
 class SpeakerDiarizer:

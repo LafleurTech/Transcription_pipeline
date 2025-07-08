@@ -232,7 +232,7 @@ results = transcriber.transcribe_multiple_files(["file1.wav", "file2.mp3"])
 
 ---
 
-## Configuration
+## transcription Configuration
 
 ### Model Selection
 
@@ -256,6 +256,10 @@ results = transcriber.transcribe_multiple_files(["file1.wav", "file2.mp3"])
 - And many more...
 
 Leave blank for automatic detection.
+
+## diarization Configuration
+
+![diarisation approaches](image.png)
 
 ---
 

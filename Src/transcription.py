@@ -8,10 +8,10 @@ from typing import Any, Callable, Dict, List, Optional
 import torch
 
 import whisper
-from lib.config import config
+from lib.config import config, OutputFormat
 from lib.logger_config import logger
 from Src.input import audio_data_to_wav_file, batch_audio_files, live_audio_chunks
-from Src.output import OutputFormat, generate_srt, save_to_file
+from Src.output import generate_srt, save_to_file
 from Src.postprocess import process_live_transcription, process_transcription_result
 
 
@@ -234,7 +234,7 @@ class TranscriptionPipeline:
             logger.info("Transcribing file: %s", input_paths[0])
             result = self._process_file(input_paths[0], output_format, language)
             if output_path:
-                self._save_results(result, output_path, output_format)
+                self.save_results(result, output_path, output_format, is_batch=False)
                 logger.info("Results saved to: %s", output_path)
             return result
         elif mode == "files":
@@ -247,7 +247,7 @@ class TranscriptionPipeline:
                 self._process_file(f, output_format, language) for f in existing_files
             ]
             if output_path:
-                self._save_batch_results(results, output_path, output_format)
+                self.save_results(results, output_path, output_format, is_batch=True)
                 logger.info("Results saved to: %s", output_path)
             return results
         elif mode == "live":
@@ -272,7 +272,7 @@ class TranscriptionPipeline:
                 logger.info("Stopping transcription...")
                 self.transcriber.stop_live_transcription()
                 if output_path and live_results:
-                    self._save_live_results(live_results, output_path)
+                    self.save_results(live_results, output_path, "json", is_batch=True)
                     logger.info("Live transcription results saved to: %s", output_path)
             return live_results
         else:
@@ -290,17 +290,11 @@ class TranscriptionPipeline:
             processed_result["formatted"] = result
         return processed_result
 
-    def _save_results(
-        self, result: Dict[str, Any], output_path: str, format_type: str
+    def save_results(
+        self,
+        results: Any,
+        output_path: str,
+        format_type: str,
+        is_batch: bool = False,
     ) -> None:
-        save_to_file(result, output_path, format_type, is_batch=False)
-
-    def _save_batch_results(
-        self, results: List[Dict[str, Any]], output_path: str, format_type: str
-    ) -> None:
-        save_to_file(results, output_path, format_type, is_batch=True)
-
-    def _save_live_results(
-        self, results: List[Dict[str, Any]], output_path: str
-    ) -> None:
-        save_to_file(results, output_path, "json", is_batch=True)
+        save_to_file(results, output_path, format_type, is_batch=is_batch)

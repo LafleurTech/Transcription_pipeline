@@ -1,8 +1,11 @@
 import os
 import json
+import glob
+import torch
 from dataclasses import dataclass, fields
 from typing import Optional, Dict, Any, List, Type, TypeVar
 from pathlib import Path
+from enum import Enum
 import pyaudio
 from dotenv import load_dotenv
 
@@ -11,6 +14,48 @@ from lib.logger_config import logger
 load_dotenv()
 
 T = TypeVar("T")
+
+
+class OutputFormat(Enum):
+    TXT = "txt"
+    SRT = "srt"
+    JSON = "json"
+    TEXT = "text"
+
+
+def expand_and_filter_files(inputs: List[str]) -> List[str]:
+    file_paths = []
+    for pattern in inputs:
+        if "*" in pattern or "?" in pattern:
+            file_paths.extend(glob.glob(pattern))
+        else:
+            file_paths.append(pattern)
+    return [f for f in file_paths if os.path.exists(f)]
+
+
+def get_effective_device(device: Optional[str] = None) -> str:
+    if device:
+        return device
+    return "cuda" if torch.cuda.is_available() else "cpu"
+
+
+class ResourceCleanupMixin:
+    """Mixin class for common resource cleanup operations."""
+
+    def cleanup(self) -> None:
+        """Override this method in subclasses for specific cleanup."""
+        pass
+
+    def cleanup_model(self, model_attr_name: str = "model") -> None:
+        """Clean up a model attribute."""
+        model = getattr(self, model_attr_name, None)
+        if model:
+            delattr(self, model_attr_name)
+
+    def cleanup_cuda(self) -> None:
+        """Clean up CUDA cache."""
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
 
 class BaseConfig:

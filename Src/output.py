@@ -1,12 +1,6 @@
 import json
-from enum import Enum
 from typing import Any, Dict, List
-
-
-class OutputFormat(Enum):
-    TEXT = "text"
-    JSON = "json"
-    SRT = "srt"
+from lib.config import OutputFormat
 
 
 def save_to_file(
