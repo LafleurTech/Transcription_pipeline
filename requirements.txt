@@ -5,10 +5,10 @@ torch>=1.13.0
 torchaudio>=0.13.0
 
 # Audio processing
-pyaudio>=0.2.11
+ffmpeg-normalize
 ffmpeg-python>=0.2.0
 noisereduce
-ffmpeg-normalize
+pyaudio>=0.2.11
 
 # Configuration
 python-dotenv>=1.0.0
@@ -24,22 +24,24 @@ jiwer>=2.2.0
 tqdm>=4.62.0
 typer>=0.9.0
 
+
+cython
+fastapi[all]
+faster-whisper
+
+git+https://github.com/MahmoudAshraf97/ctc-forced-aligner.git
+git+https://github.com/MahmoudAshraf97/demucs.git
+git+https://github.com/oliverguhr/deepmultilingualpunctuation.git
+
+nemo-toolkit[asr]
+nltk
+omegaconf
+pydub
+
+
 # Optional: For faster inference 
 # faster-whisper>=0.7.0
 
 # Development (optional)
 # black
 # flake8
-
-cython
-nemo-toolkit[asr]
-faster-whisper
-omegaconf
-nltk
-pydub
-
-git+https://github.com/MahmoudAshraf97/demucs.git
-git+https://github.com/oliverguhr/deepmultilingualpunctuation.git
-git+https://github.com/MahmoudAshraf97/ctc-forced-aligner.git
-
-fastapi[all]
