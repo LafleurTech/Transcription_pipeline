@@ -8,4 +8,4 @@ from Src.postprocess import process_live_transcription, process_transcription_re
 from Src.output import generate_srt, save_to_file
 from lib.config import OutputFormat
 
-from api_core import TranscriptionAPI, DiarizationAPI
+from app.api_core import TranscriptionAPI, DiarizationAPI

@@ -12,7 +12,7 @@ import asyncio
 import shutil
 
 # Import our API core logic
-from api_core import TranscriptionAPI, DiarizationAPI
+from app.api_core import TranscriptionAPI, DiarizationAPI
 from lib.logger_config import logger
 
 app = FastAPI(title="Audio Transcription Pipeline API", version="1.0.0")
