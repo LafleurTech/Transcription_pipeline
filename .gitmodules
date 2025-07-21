@@ -1,12 +1,12 @@
 [submodule "whisper"]
 	path = whisper
-	url = git@github.com:LafleurTech/whisper.git
+	url = https://github.com/Raghav-56/whisper.git
 [submodule "NeMo"]
 	path = NeMo
-	url = git@github.com:LafleurTech/NeMo.git
+	url = https://github.com/Raghav-56/NeMo.git
 [submodule "ffmpeg-normalize"]
 	path = ffmpeg-normalize
-	url = git@github.com:LafleurTech/ffmpeg-normalize.git
+	url = https://github.com/Raghav-56/ffmpeg-normalize.git
 [submodule "faster-whisper"]
 	path = faster-whisper
-	url = git@github.com:LafleurTech/faster-whisper.git
+	url = https://github.com/Raghav-56/faster-whisper.git
