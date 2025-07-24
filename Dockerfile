@@ -10,7 +10,7 @@ COPY . /app
 
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 RUN git config --global --add safe.directory /app
-RUN git submodule update --init --recursive
+# RUN git submodule update --init --recursive
 
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
