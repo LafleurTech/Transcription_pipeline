@@ -1,87 +1,99 @@
 import sys
-import argparse
 import subprocess
 from pathlib import Path
+from typing import List, Optional
+import typer
+from typing_extensions import Annotated
 
 
-def run_cli(args):
-    cli_path = Path(__file__).parent / "interface" / "cli.py"
-    cmd = [sys.executable, str(cli_path)] + args.extra
+app = typer.Typer(
+    name="transcription-pipeline",
+    help="Transcription Pipeline Main Entry Point",
+    no_args_is_help=True,
+)
+
+
+def run_script(script_name: str, extra_args: List[str]):
+    """Helper function to run interface scripts with extra arguments."""
+    script_path = Path(__file__).parent / "interface" / script_name
+    cmd = [sys.executable, str(script_path)] + extra_args
     subprocess.run(cmd)
 
 
-def run_client(args):
-    client_path = Path(__file__).parent / "interface" / "client.py"
-    cmd = [sys.executable, str(client_path)] + args.extra
-    subprocess.run(cmd)
+@app.command()
+def cli(
+    ctx: typer.Context,
+    extra_args: Annotated[Optional[List[str]], typer.Argument()] = None,
+):
+    """Run CLI interface."""
+    args = extra_args or []
+    if ctx.params.get("help"):
+        args = []
+    run_script("cli.py", args)
 
 
-def run_server(args):
-    server_path = Path(__file__).parent / "interface" / "server.py"
-    cmd = [sys.executable, str(server_path)] + args.extra
-    subprocess.run(cmd)
+@app.command()
+def client(
+    ctx: typer.Context,
+    extra_args: Annotated[Optional[List[str]], typer.Argument()] = None,
+):
+    """Run API client."""
+    args = extra_args or []
+    if ctx.params.get("help"):
+        args = []
+    run_script("client.py", args)
 
 
-def run_streamlit(args):
+@app.command()
+def server(
+    ctx: typer.Context,
+    extra_args: Annotated[Optional[List[str]], typer.Argument()] = None,
+):
+    """Run API server."""
+    args = extra_args or []
+    if ctx.params.get("help"):
+        args = []
+    run_script("server.py", args)
+
+
+@app.command()
+def streamlit(
+    ctx: typer.Context,
+    extra_args: Annotated[Optional[List[str]], typer.Argument()] = None,
+):
+    """Run Streamlit app."""
+    args = extra_args or []
+    if ctx.params.get("help"):
+        args = []
     streamlit_path = Path(__file__).parent / "interface" / "streamlit_app.py"
-    cmd = ["streamlit", "run", str(streamlit_path)] + args.extra
+    cmd = ["streamlit", "run", str(streamlit_path)] + args
     subprocess.run(cmd)
 
 
-def main():
+@app.callback(invoke_without_command=True)
+def main(ctx: typer.Context):
+    """Interactive mode when no command is provided."""
+    if ctx.invoked_subcommand is None:
+        typer.echo("Select a mode to run:")
+        typer.echo("1. CLI interface")
+        typer.echo("2. API client")
+        typer.echo("3. API server")
+        typer.echo("4. Streamlit app")
 
-    parser = argparse.ArgumentParser(
-        description="Transcription Pipeline Main Entry Point"
-    )
-    subparsers = parser.add_subparsers(dest="command")
+        choice = typer.prompt("Enter choice [1-4]").strip()
 
-    cli_parser = subparsers.add_parser("cli", help="Run CLI interface")
-    cli_parser.add_argument("extra", nargs=argparse.REMAINDER, help="Arguments for CLI")
-    cli_parser.set_defaults(func=run_cli)
-
-    client_parser = subparsers.add_parser("client", help="Run API client")
-    client_parser.add_argument(
-        "extra", nargs=argparse.REMAINDER, help="Arguments for client"
-    )
-    client_parser.set_defaults(func=run_client)
-
-    server_parser = subparsers.add_parser("server", help="Run API server")
-    server_parser.add_argument(
-        "extra", nargs=argparse.REMAINDER, help="Arguments for server"
-    )
-    server_parser.set_defaults(func=run_server)
-
-    streamlit_parser = subparsers.add_parser("streamlit", help="Run Streamlit app")
-    streamlit_parser.add_argument(
-        "extra", nargs=argparse.REMAINDER, help="Arguments for Streamlit app"
-    )
-    streamlit_parser.set_defaults(func=run_streamlit)
-
-    if len(sys.argv) == 1:
-        print("Select a mode to run:")
-        print("1. CLI interface")
-        print("2. API client")
-        print("3. API server")
-        print("4. Streamlit app")
-        choice = input("Enter choice [1-4]: ").strip()
         if choice == "1":
-            sys.argv.append("cli")
+            ctx.invoke(cli)
         elif choice == "2":
-            sys.argv.append("client")
+            ctx.invoke(client)
         elif choice == "3":
-            sys.argv.append("server")
+            ctx.invoke(server)
         elif choice == "4":
-            sys.argv.append("streamlit")
+            ctx.invoke(streamlit)
         else:
-            print("Invalid choice. Exiting.")
-            sys.exit(1)
-
-    args = parser.parse_args()
-    if hasattr(args, "func"):
-        args.func(args)
-    else:
-        parser.print_help()
+            typer.echo("Invalid choice. Exiting.")
+            raise typer.Exit(1)
 
 
 if __name__ == "__main__":
-    main()
+    app()
