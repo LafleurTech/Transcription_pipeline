@@ -1,8 +1,8 @@
-import os
-import requests
 import json
-from typing import List, Optional, Dict, Any
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import requests
 
 
 class TranscriptionAPIClient:
@@ -28,21 +28,7 @@ class TranscriptionAPIClient:
         device: Optional[str] = None,
         output: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """
-        Transcribe multiple audio files.
 
-        Args:
-            file_paths: List of file paths (for existing files on server)
-            files: List of local file paths to upload
-            model: Whisper model to use
-            language: Language code (e.g., 'en', 'hi', 'es')
-            format_option: Output format ('txt', 'json', 'srt', etc.)
-            device: Device to use ('cpu', 'cuda')
-            output: Output file path
-
-        Returns:
-            Dict containing transcription results
-        """
         url = f"{self.base_url}/transcribe/files"
 
         # Prepare form data

@@ -22,6 +22,12 @@ def run_server(args):
     subprocess.run(cmd)
 
 
+def run_streamlit(args):
+    streamlit_path = Path(__file__).parent / "interface" / "streamlit_app.py"
+    cmd = ["streamlit", "run", str(streamlit_path)] + args.extra
+    subprocess.run(cmd)
+
+
 def main():
 
     parser = argparse.ArgumentParser(
@@ -45,18 +51,27 @@ def main():
     )
     server_parser.set_defaults(func=run_server)
 
+    streamlit_parser = subparsers.add_parser("streamlit", help="Run Streamlit app")
+    streamlit_parser.add_argument(
+        "extra", nargs=argparse.REMAINDER, help="Arguments for Streamlit app"
+    )
+    streamlit_parser.set_defaults(func=run_streamlit)
+
     if len(sys.argv) == 1:
         print("Select a mode to run:")
         print("1. CLI interface")
         print("2. API client")
         print("3. API server")
-        choice = input("Enter choice [1-3]: ").strip()
+        print("4. Streamlit app")
+        choice = input("Enter choice [1-4]: ").strip()
         if choice == "1":
             sys.argv.append("cli")
         elif choice == "2":
             sys.argv.append("client")
         elif choice == "3":
             sys.argv.append("server")
+        elif choice == "4":
+            sys.argv.append("streamlit")
         else:
             print("Invalid choice. Exiting.")
             sys.exit(1)

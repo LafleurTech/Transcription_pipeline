@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Transcription Pipeline</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-microphone"></i> Audio Transcription Pipeline</h1>
+            <p>Upload audio files for transcription and speaker diarization</p>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-button active" onclick="openTab(event, 'transcription')">
+                <i class="fas fa-file-text"></i> Transcription
+            </button>
+            <button class="tab-button" onclick="openTab(event, 'diarization')">
+                <i class="fas fa-users"></i> Diarization
+            </button>
+            <button class="tab-button" onclick="openTab(event, 'live')">
+                <i class="fas fa-broadcast-tower"></i> Live Transcription
+            </button>
+        </div>
+
+        <!-- Transcription Tab -->
+        <div id="transcription" class="tab-content active">
+            <div class="upload-section">
+                <h2>File Transcription</h2>
+                <form id="transcription-form" enctype="multipart/form-data">
+                    <div class="file-upload">
+                        <input type="file" id="transcription-files" name="files" multiple accept="audio/*">
+                        <label for="transcription-files" class="file-upload-label">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <span>Choose audio files or drag & drop</span>
+                        </label>
+                    </div>
+                    
+                    <div class="options-grid">
+                        <div class="form-group">
+                            <label for="transcription-model">Model:</label>
+                            <select id="transcription-model" name="model">
+                                <option value="base">Base</option>
+                                <option value="small">Small</option>
+                                <option value="medium">Medium</option>
+                                <option value="large">Large</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="transcription-language">Language:</label>
+                            <select id="transcription-language" name="language">
+                                <option value="">Auto-detect</option>
+                                <option value="en">English</option>
+                                <option value="es">Spanish</option>
+                                <option value="fr">French</option>
+                                <option value="de">German</option>
+                                <option value="it">Italian</option>
+                                <option value="pt">Portuguese</option>
+                                <option value="ru">Russian</option>
+                                <option value="ja">Japanese</option>
+                                <option value="ko">Korean</option>
+                                <option value="zh">Chinese</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="transcription-format">Output Format:</label>
+                            <select id="transcription-format" name="format_option">
+                                <option value="txt">Text (.txt)</option>
+                                <option value="json">JSON (.json)</option>
+                                <option value="srt">SRT Subtitles (.srt)</option>
+                                <option value="vtt">WebVTT (.vtt)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="transcription-device">Device:</label>
+                            <select id="transcription-device" name="device">
+                                <option value="auto">Auto</option>
+                                <option value="cpu">CPU</option>
+                                <option value="cuda">CUDA (GPU)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn">
+                        <i class="fas fa-play"></i> Start Transcription
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Diarization Tab -->
+        <div id="diarization" class="tab-content">
+            <div class="upload-section">
+                <h2>Speaker Diarization</h2>
+                <form id="diarization-form" enctype="multipart/form-data">
+                    <div class="file-upload">
+                        <input type="file" id="diarization-files" name="files" multiple accept="audio/*">
+                        <label for="diarization-files" class="file-upload-label">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <span>Choose audio files or drag & drop</span>
+                        </label>
+                    </div>
+                    
+                    <div class="options-grid">
+                        <div class="form-group">
+                            <label for="diarization-model">Model:</label>
+                            <select id="diarization-model" name="model">
+                                <option value="base">Base</option>
+                                <option value="small">Small</option>
+                                <option value="medium">Medium</option>
+                                <option value="large">Large</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="diarization-language">Language:</label>
+                            <select id="diarization-language" name="language">
+                                <option value="">Auto-detect</option>
+                                <option value="en">English</option>
+                                <option value="es">Spanish</option>
+                                <option value="fr">French</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="batch-size">Batch Size:</label>
+                            <input type="number" id="batch-size" name="batch_size" value="8" min="1" max="32">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="diarization-device">Device:</label>
+                            <select id="diarization-device" name="device">
+                                <option value="auto">Auto</option>
+                                <option value="cpu">CPU</option>
+                                <option value="cuda">CUDA (GPU)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="checkbox-group">
+                        <label>
+                            <input type="checkbox" name="suppress_numerals"> Suppress Numerals
+                        </label>
+                        <label>
+                            <input type="checkbox" name="no_stem"> Disable Source Separation
+                        </label>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn">
+                        <i class="fas fa-users"></i> Start Diarization
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Live Transcription Tab -->
+        <div id="live" class="tab-content">
+            <div class="upload-section">
+                <h2>Live Transcription Simulation</h2>
+                <form id="live-form" enctype="multipart/form-data">
+                    <div class="file-upload">
+                        <input type="file" id="live-file" name="audio_file" accept="audio/*">
+                        <label for="live-file" class="file-upload-label">
+                            <i class="fas fa-microphone"></i>
+                            <span>Choose audio file for live simulation</span>
+                        </label>
+                    </div>
+                    
+                    <div class="options-grid">
+                        <div class="form-group">
+                            <label for="live-model">Model:</label>
+                            <select id="live-model" name="model">
+                                <option value="base">Base</option>
+                                <option value="small">Small</option>
+                                <option value="medium">Medium</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="chunk-duration">Chunk Duration (seconds):</label>
+                            <input type="number" id="chunk-duration" name="chunk_duration" value="10" min="1" max="60" step="1">
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn">
+                        <i class="fas fa-broadcast-tower"></i> Start Live Transcription
+                    </button>
+                </form>
+                
+                <div id="live-results" class="live-results" style="display: none;">
+                    <h3>Live Transcription Results</h3>
+                    <div id="live-output"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results" class="results-section" style="display: none;">
+            <h2>Results</h2>
+            <div id="results-content"></div>
+            <div class="results-actions">
+                <button id="download-btn" class="action-btn" style="display: none;">
+                    <i class="fas fa-download"></i> Download Results
+                </button>
+                <button id="clear-results-btn" class="action-btn">
+                    <i class="fas fa-trash"></i> Clear Results
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Processing your audio files...</p>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

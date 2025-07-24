@@ -27,7 +27,11 @@ typer>=0.9.0
 
 cython
 fastapi[all]
+python-multipart
+jinja2
+aiofiles
 faster-whisper
+streamlit>=1.28.0
 
 git+https://github.com/MahmoudAshraf97/ctc-forced-aligner.git
 git+https://github.com/MahmoudAshraf97/demucs.git
