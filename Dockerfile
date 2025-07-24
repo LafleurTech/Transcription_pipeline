@@ -17,4 +17,4 @@ RUN pip install --upgrade pip && \
 
 EXPOSE 8000 8501
 
-ENTRYPOINT ["python", "main.py"]
+ENTRYPOINT ["python3", "main.py"]
