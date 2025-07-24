@@ -1,28 +1,41 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks, File, UploadFile, Form
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
-from uuid import uuid4
-import time
-import os
-import tempfile
-import json
-from datetime import datetime
 import asyncio
+import json
+import os
 import shutil
+import tempfile
+import time
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+from uuid import uuid4
 
-# Import our API core logic
-from app.api_core import TranscriptionAPI, DiarizationAPI
+from fastapi import (
+    BackgroundTasks,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+    Request,
+)
+from fastapi.responses import StreamingResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
+
+from app.api_core import DiarizationAPI, TranscriptionAPI
 from lib.logger_config import logger
 
 app = FastAPI(title="Audio Transcription Pipeline API", version="1.0.0")
 
-# Initialize API handlers
+# Mount static files
+app.mount("/static", StaticFiles(directory="interface/static"), name="static")
+
+# Templates
+templates = Jinja2Templates(directory="interface/templates")
+
+# Initialize API handler
 transcription_api = TranscriptionAPI()
 diarization_api = DiarizationAPI()
-
-
-# Pydantic models for request/response
 
 
 class TranscriptionFilesRequest(BaseModel):
@@ -70,13 +83,17 @@ class TranscriptionResponse(BaseModel):
     processing_time: Optional[float] = None
 
 
-# Job tracking for async operations
 active_jobs: Dict[str, Dict] = {}
 
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
+async def web_interface(request: Request):
+    """Serve the web interface."""
+    return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/api")
 async def root():
-    """Root endpoint with API information."""
     return {
         "message": "Audio Transcription Pipeline API",
         "version": "1.0.0",
@@ -92,13 +109,11 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
 
 @app.post("/transcribe/files", response_model=TranscriptionResponse)
 async def transcribe_files(
-    # Support both file upload and file paths
     files: Optional[List[UploadFile]] = File(None),
     file_paths: Optional[str] = Form(None),  # JSON string of file paths
     model: Optional[str] = Form(None),
@@ -107,13 +122,6 @@ async def transcribe_files(
     device: Optional[str] = Form(None),
     output: Optional[str] = Form(None),
 ):
-    """
-    Transcribe multiple audio files.
-
-    Accepts either:
-    1. Multiple uploaded files via multipart/form-data
-    2. File paths/patterns as JSON string
-    """
     start_time = time.time()
     temp_files = []
 
@@ -194,12 +202,6 @@ async def transcribe_live(
     device: Optional[str] = Form(None),
     output: Optional[str] = Form(None),
 ):
-    """
-    Perform live transcription.
-
-    For now, accepts an audio file and simulates live processing by
-    chunking it. Future versions can support real streaming.
-    """
     start_time = time.time()
     temp_file = None
 
@@ -360,7 +362,7 @@ async def diarize_files(
                 logger.warning("Failed to cleanup temp file %s: %s", temp_file, e)
 
 
-# Async job endpoints for long-running operations
+# TODO: Async job endpoints for long-running operations
 @app.post("/transcribe/files/async")
 async def transcribe_files_async(
     background_tasks: BackgroundTasks,

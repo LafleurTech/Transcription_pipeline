@@ -142,6 +142,8 @@ Manual:
 
 ## Basic Usage
 
+### Command Line Interface
+
 Show help:
 ```bash
 python main.py --help
@@ -161,6 +163,49 @@ Batch processing:
 ```bash
 python main.py files *.wav
 ```
+
+### Web Interfaces
+
+The pipeline provides two web interface options:
+
+#### 1. Streamlit Web App (Recommended)
+A modern, user-friendly interface built with Streamlit:
+
+```bash
+# Start the API server first
+python interface/server.py
+
+# Then start the Streamlit app
+python run_streamlit.py
+# or
+streamlit run interface/streamlit_app.py
+```
+
+Access at: `http://localhost:8501`
+
+**Features:**
+- 🎙️ Audio transcription with file upload
+- 👥 Speaker diarization
+- ⚙️ Easy model configuration
+- 📊 Real-time progress tracking
+- 🎨 Clean, responsive UI
+
+#### 2. FastAPI Server with HTML Interface
+A RESTful API server with a basic HTML interface:
+
+```bash
+python interface/server.py
+```
+
+Access at: `http://localhost:8000`
+
+**API Endpoints:**
+- `POST /transcribe/files` - Transcribe audio files
+- `POST /transcribe/live` - Live transcription
+- `POST /diarize/files` - Speaker diarization
+- `GET /health` - Health check
+
+See `interface/README.md` for detailed usage instructions.
 
 ## Documentation
 
