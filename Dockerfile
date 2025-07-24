@@ -15,6 +15,8 @@ RUN git config --global --add safe.directory /app
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
+ENV PYTHONPATH="/app:${PYTHONPATH}"
+
 EXPOSE 8000 8501
 
 # ENTRYPOINT ["python3", "main.py"]

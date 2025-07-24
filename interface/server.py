@@ -22,6 +22,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).parent.parent))
+
 from app.api_core import DiarizationAPI, TranscriptionAPI
 from lib.logger_config import logger
 
