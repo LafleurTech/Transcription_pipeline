@@ -1,9 +1,12 @@
 services:
   server:
-    build: .
+    image: transcription_pipeline:latest 
+    # build: .
     command: python3 main.py server
     ports:
       - "8000:8000"
+    volumes:
+      - .:/app
     # healthcheck:
     #   test: ["CMD", "curl", "--fail", "http://localhost:8000/health"]
     #   interval: 30s
@@ -16,10 +19,13 @@ services:
   #   depends_on:
   #     - server
   streamlit:
-    build: .
+    image: transcription_pipeline:latest
+    # build: .
     command: python3 main.py streamlit --server.port=8501 --server.address=0.0.0.0
     ports:
       - "8501:8501"
+    volumes:
+      - .:/app
     depends_on:
       - server
     environment:
