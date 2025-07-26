@@ -2,9 +2,11 @@ import asyncio
 import json
 import os
 import shutil
+import sys
 import tempfile
 import time
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
@@ -14,16 +16,13 @@ from fastapi import (
     File,
     Form,
     HTTPException,
-    UploadFile,
     Request,
+    UploadFile,
 )
-from fastapi.responses import StreamingResponse, HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-
-import sys
-from pathlib import Path
 
 sys.path.append(str(Path(__file__).parent.parent))
 
