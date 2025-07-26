@@ -21,7 +21,7 @@ services:
   streamlit:
     image: transcription_pipeline:latest
     # build: .
-    command: python3 main.py streamlit --server.port=8501 --server.address=0.0.0.0
+    command: python3 main.py streamlit -- --server.port=8501 --server.address=0.0.0.0
     ports:
       - "8501:8501"
     volumes:
