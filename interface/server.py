@@ -130,6 +130,23 @@ async def transcribe_files(
     temp_files = []
 
     try:
+        effective_device = device
+        if not effective_device or effective_device.lower() == "auto":
+            effective_device = "cpu"
+            logger.info(
+                "Device set to 'auto', defaulting to 'cpu' for server environment."
+            )
+
+        # Validate and default format_option
+        valid_formats = ["json", "vtt", "srt", "tsv", "txt"]
+        if format_option and format_option not in valid_formats:
+            logger.warning(
+                f"Invalid output format: {format_option}. Defaulting to json."
+            )
+            format_option = "json"
+        elif not format_option:
+            format_option = "json"
+
         input_paths = []
 
         # Handle uploaded files
@@ -161,7 +178,8 @@ async def transcribe_files(
         if not input_paths:
             raise HTTPException(
                 status_code=400,
-                detail="No files provided. Either upload files or provide file_paths.",
+                detail="No files provided. "
+                "Either upload files or provide file_paths.",
             )
 
         # Call the transcription API
@@ -171,7 +189,7 @@ async def transcribe_files(
             model=model,
             language=language,
             format_option=format_option,
-            device=device,
+            device=effective_device,
         )
 
         result["processing_time"] = time.time() - start_time
@@ -192,7 +210,9 @@ async def transcribe_files(
                     os.remove(temp_file)
             except Exception as cleanup_error:
                 logger.warning(
-                    "Failed to cleanup temp file %s: %s", temp_file, cleanup_error
+                    "Failed to cleanup temp file %s: %s",
+                    temp_file,
+                    cleanup_error,
                 )
 
 
