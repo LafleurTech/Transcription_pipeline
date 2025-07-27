@@ -1,5 +1,8 @@
 services:
   server:
+    build: 
+      context: .
+      dockerfile: Dockerfile
     image: transcription_pipeline:latest 
     # build: .
     command: python3 main.py server
