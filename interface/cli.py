@@ -5,6 +5,7 @@ import typer
 from lib.logger_config import logger
 from lib.config import config
 from app.api_core import TranscriptionAPI, DiarizationAPI
+from app.unified_api import unified_api
 
 # Import for CLI compatibility
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "Src"))
@@ -297,6 +298,85 @@ def diarize_files(
     except Exception as e:
         logger.error("Failed to perform batch diarization: %s", e)
         raise typer.Exit(1)
+
+
+@app.command()
+def unified(
+    inputs: List[str] = typer.Argument(..., help="Input audio file paths"),
+    mode: str = typer.Option(
+        "combined",
+        "--mode",
+        "-M",
+        help="Processing mode: transcription, diarization, or combined",
+        show_default=True,
+    ),
+    output: Optional[str] = create_output_option(),
+    model: str = create_model_option(),
+    language: Optional[str] = create_language_option(),
+    device: Optional[str] = create_device_option(),
+    batch_size: int = create_batch_size_option(),
+    suppress_numerals: bool = create_suppress_numerals_option(),
+    no_stem: bool = create_no_stem_option(),
+    output_formats: List[str] = typer.Option(
+        ["json"],
+        "--format",
+        "-f",
+        help="Output formats (multiple allowed)",
+    ),
+):
+    """
+    Unified processing: transcription, diarization, or both combined.
+    """
+    try:
+        logger.info(f"Starting unified processing in {mode} mode")
+        logger.info(f"Input files: {inputs}")
+
+        result = unified_api.process_audio(
+            inputs=inputs,
+            mode=mode,
+            include_transcription=mode in ["transcription", "combined"],
+            include_diarization=mode in ["diarization", "combined"],
+            model=model,
+            language=language,
+            device=device,
+            output_formats=output_formats,
+            output_path=output,
+            batch_size=batch_size,
+            suppress_numerals=suppress_numerals,
+            enable_stemming=not no_stem,
+        )
+
+        if result["success"]:
+            logger.info("Processing completed successfully")
+            logger.info(f"Files processed: {result['files_processed']}")
+            logger.info(f"Mode: {result['mode']}")
+
+            if mode in ["diarization", "combined"]:
+                logger.info(f"Successful: {result.get('successful', 0)}")
+                logger.info(f"Failed: {result.get('failed', 0)}")
+
+            for file_result in result.get("results", []):
+                if file_result.get("success"):
+                    logger.info(f"Processed: {file_result['file_path']}")
+                    if mode == "combined":
+                        lang = file_result.get("language", "unknown")
+                        speakers = file_result.get("speaker_count", 0)
+                        words = file_result.get("word_count", 0)
+                        logger.info(f"  Language: {lang}")
+                        logger.info(f"  Speakers: {speakers}")
+                        logger.info(f"  Words: {words}")
+                else:
+                    error_msg = file_result.get("error", "Unknown error")
+                    logger.error(
+                        f"Failed: {file_result['file_path']} - " f"{error_msg}"
+                    )
+        else:
+            error_msg = result.get("error", "Unknown error")
+            logger.error(f"Processing failed: {error_msg}")
+
+    except Exception as e:
+        logger.error(f"Error during unified processing: {e}")
+        raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":
