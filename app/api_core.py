@@ -1,4 +1,3 @@
-import sys
 from typing import Any, Callable, Dict, List, Optional
 
 from lib.config import config, expand_and_filter_files, get_effective_device

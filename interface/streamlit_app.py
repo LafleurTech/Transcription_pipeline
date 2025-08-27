@@ -62,7 +62,7 @@ st.markdown(
 class StreamlitTranscriptionClient:
     """Streamlit client for the transcription API."""
 
-    def __init__(self, base_url: str = "http://localhost:8000"):
+    def __init__(self, base_url: str = "http://server:8000"):
         self.base_url = base_url.rstrip("/")
 
     def health_check(self) -> bool:
@@ -180,11 +180,15 @@ def main():
         processing_mode = st.selectbox(
             "Processing Mode",
             [
-                ("combined", "🔄 Complete Analysis (Transcription + Speakers)"),
-                ("transcription", "🎯 Transcription Only"),
-                ("diarization", "👥 Speaker Identification Only"),
+                "combined",
+                "transcription",
+                "diarization",
             ],
-            format_func=lambda x: x[1],
+            format_func=lambda x: {
+                "combined": "🔄 Complete Analysis (Transcription + Speakers)",
+                "transcription": "🎯 Transcription Only",
+                "diarization": "👥 Speaker Identification Only",
+            }[x],
             help="Choose what type of analysis to perform on your audio",
         )
 
@@ -257,15 +261,20 @@ def main():
     if uploaded_files:
         total_size = sum(file.size for file in uploaded_files) / 1024 / 1024
         st.caption(f"{len(uploaded_files)} file(s), {total_size:.1f} MB")
+        mode_labels = {
+            "combined": "Complete",
+            "transcription": "Transcription",
+            "diarization": "Diarization",
+        }
         if st.button(
-            f"Start {processing_mode[1].split(' ')[1]} Processing",
+            f"Start {mode_labels.get(processing_mode, processing_mode)} Processing",
             type="primary",
             use_container_width=True,
             disabled=not uploaded_files,
         ):
             process_audio_files(
                 uploaded_files,
-                processing_mode[0],
+                processing_mode,
                 model,
                 language[0],
                 device[0],
