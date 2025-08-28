@@ -14,7 +14,6 @@ app = typer.Typer(
 
 
 def run_script(script_name: str, extra_args: List[str]):
-    """Helper function to run interface scripts with extra arguments."""
     script_path = Path(__file__).parent / "interface" / script_name
     cmd = [sys.executable, str(script_path)] + extra_args
     subprocess.run(cmd)

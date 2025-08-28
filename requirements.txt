@@ -41,6 +41,10 @@ nemo-toolkit[asr]
 nltk
 omegaconf
 pydub
+soundfile
+librosa
+# optional ONNX path
+sherpa-onnx
 
 
 # Optional: For faster inference 
