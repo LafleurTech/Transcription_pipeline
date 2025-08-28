@@ -16,12 +16,12 @@ services:
       <<: *common-env
     volumes:
       - .:/app
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
+    # healthcheck:
+    #   test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+    #   interval: 30s
+    #   timeout: 5s
+    #   retries: 5
+    #   start_period: 15s
     restart: unless-stopped
   # client:
   #   image: transcription_pipeline:latest
@@ -33,9 +33,9 @@ services:
   streamlit:
     image: transcription_pipeline:latest
     # build: .
-    depends_on:
-      server:
-        condition: service_healthy
+    # depends_on:
+    #   server:
+    #     condition: service_healthy
     command: python3 main.py streamlit -- --server.port=8501 --server.address=0.0.0.0
     ports:
       - "8501:8501"
