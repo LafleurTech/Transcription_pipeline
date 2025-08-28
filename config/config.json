@@ -1,0 +1,110 @@
+{
+  "audio": {
+    "chunk_size": 1024,
+    "format": "paInt16",
+    "channels": 1,
+    "rate": 16000,
+    "silence_threshold": 500,
+    "silence_limit": 5
+  },
+  "whisper": {
+    "available_models": ["tiny", "base", "small", "medium", "large", "turbo"],
+    "default_model": "turbo"
+  },
+  "parakeet": {
+    "available_models": [
+      "parakeet-tdt-0.6b-v2",
+      "parakeet-tdt-1.1b", 
+      "parakeet-rnnt-1.1b"
+    ],
+    "default_model": "parakeet-tdt-0.6b-v2",
+    "model_path": "models/parakeet/parakeet-tdt-0.6b-v2.nemo",
+    "enable_timestamps": true,
+    "batch_size": 8,
+    "chunk_duration": 30.0,
+    "chunk_overlap": 2.0
+  },
+  "asr_engine": {
+    "default": "parakeet",
+    "available": ["whisper", "parakeet"],
+    "fallback_order": ["parakeet", "whisper"]
+  },
+  "output": {
+    "default_format": "text",
+    "supported_formats": ["text", "json", "srt"],
+    "supported_audio_extensions": [".wav", ".mp3", ".m4a", ".flac", ".aac", ".ogg", ".wma"]
+  },
+  "transcription": {
+    "default_chunk_duration": 5.0,
+    "auto_punctuation": true,
+    "punctuation_chars": ".!?",
+    "add_word_count": true,
+    "clean_text": true
+  },
+  "srt": {
+    "time_format": "HH:MM:SS,mmm",
+    "max_line_length": 80,
+    "max_lines_per_subtitle": 2
+  },
+  "processing": {
+    "exception_on_overflow": false,
+    "temp_file_suffix": ".wav",
+    "batch_processing_enabled": true
+  },
+  "cli": {
+    "default_model": "base",
+    "default_output_format": "text",
+    "default_chunk_duration": 5.0,
+    "show_progress": true,
+    "validate_inputs": true
+  },
+  "device": {
+    "auto_detect": true,
+    "prefer_cuda": true,
+    "fallback_to_cpu": true,
+    "device_selection_strategy": "auto"
+  },
+  "logging": {
+    "level": "INFO",
+    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    "enable_file_logging": false,
+    "log_file_path": "transcription.log"
+  },
+  "validation": {
+    "check_file_exists": true,
+    "validate_audio_format": true,
+    "validate_model_name": true,
+    "validate_output_format": true,
+    "max_file_size_mb": 1000
+  },
+  "performance": {
+    "max_concurrent_transcriptions": 1,
+    "thread_join_timeout": 2.0,
+    "audio_queue_timeout": 1.0,
+    "batch_size": 1,
+    "enable_optimizations": true
+  },
+  "diarization": {
+    "default_model": "medium.en",
+    "default_batch_size": 8,
+    "available_models": ["msdd"],
+    "enable_stemming": true,
+    "suppress_numerals": false,
+    "temp_directory": "temp_outputs",
+    "audio_processing_modes": ["with_stemming", "without_stemming"],
+    "supported_output_formats": ["txt", "srt", "json"],
+    "forced_alignment": {
+      "enable": true,
+      "batch_size": 8
+    },
+    "punctuation_restoration": {
+      "enable": true,
+      "supported_languages": ["en", "hi"]
+    },
+    "vocal_separation": {
+      "model": "htdemucs",
+      "stems": "vocals",
+      "output_dir": "temp_outputs"
+    }
+  }
+}

@@ -1,0 +1,1 @@
+https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2/blob/main/parakeet-tdt-0.6b-v2.nemo
