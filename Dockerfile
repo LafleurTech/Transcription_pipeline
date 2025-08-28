@@ -6,9 +6,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential git curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
-
-ADD --chmod=755 https://astral.sh/uv/0.1.16/install.sh /install-uv.sh
-RUN /install-uv.sh && rm /install-uv.sh
 ENV PATH="/root/.local/bin:${PATH}"
 
 ENV UV_SYSTEM_PYTHON=1
@@ -17,10 +14,10 @@ WORKDIR /app
 
 COPY requirements.txt ./
 
-# trust repo path for git (if editable installs / submodules are used later)
-RUN git config --global --add safe.directory /app
-
-RUN uv pip install --system --no-cache -r requirements.txt
+# trust repo path for git, install uv, then install deps
+RUN git config --global --add safe.directory /app \
+    && curl -LsSf https://astral.sh/uv/0.1.16/install.sh | sh \
+    && uv pip install --system --no-cache -r requirements.txt
 
 
 FROM python:3.12-slim AS runtime
