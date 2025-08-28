@@ -33,9 +33,9 @@ aiofiles
 faster-whisper
 streamlit>=1.28.0
 
-git+https://github.com/MahmoudAshraf97/ctc-forced-aligner.git
-git+https://github.com/MahmoudAshraf97/demucs.git
-git+https://github.com/oliverguhr/deepmultilingualpunctuation.git
+ctc-forced-aligner @ git+https://github.com/MahmoudAshraf97/ctc-forced-aligner.git
+demucs @ git+https://github.com/MahmoudAshraf97/demucs.git
+deepmultilingualpunctuation @ git+https://github.com/oliverguhr/deepmultilingualpunctuation.git
 
 nemo-toolkit[asr]
 nltk
