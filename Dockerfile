@@ -23,6 +23,8 @@ RUN git config --global --add safe.directory /app \
     && mv /root/.cargo/bin/uv /usr/local/bin/uv \
     && uv pip install --system --no-cache -r requirements.txt
 
+RUN source $HOME/.cargo/env
+
 FROM base AS runtime
 WORKDIR /app
 

@@ -16,18 +16,12 @@ services:
       <<: *common-env
     volumes:
       - .:/app
-    # healthcheck:
-    #   test: ["CMD", "curl", "--fail", "http://localhost:8000/health"]
-    #   interval: 30s
-    #   timeout: 5s
-    #   retries: 3
-    #   start_period: 10s
-    # healthcheck:
-    #   test: ["CMD", "python3", "-c", "import urllib.request,sys;\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\ntry: urllib.request.urlopen('http://localhost:8000/health', timeout=2); sys.exit(0)\nexcept Exception: sys.exit(1)"]
-    #   interval: 30s
-    #   timeout: 5s
-    #   retries: 5
-    #   start_period: 15s
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     restart: unless-stopped
   # client:
   #   image: transcription_pipeline:latest
