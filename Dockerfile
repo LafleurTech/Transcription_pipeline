@@ -7,9 +7,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential git curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-ADD --chmod=755 https://astral.sh/uv/install.sh /install-uv.sh
-# Install a specific uv version (the install script supports --version, not --branch)
-RUN /install-uv.sh --version 0.1.16 && rm /install-uv.sh
+ADD --chmod=755 https://astral.sh/uv/0.1.16/install.sh /install-uv.sh
+RUN /install-uv.sh && rm /install-uv.sh
+ENV PATH="/root/.local/bin:${PATH}"
 
 ENV UV_SYSTEM_PYTHON=1
 
@@ -48,7 +48,7 @@ COPY NeMo/ ./NeMo/
 
 COPY main.py ./
 
-ENV PYTHONPATH="/app:${PYTHONPATH:-}"
+ENV PYTHONPATH="/app"
 
 EXPOSE 8000 8501
 
